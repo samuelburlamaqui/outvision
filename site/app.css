@@ -27,6 +27,9 @@
   --st-proposta: #b45f22;
   --st-fechada: #3f6b17;
   --st-perdida: #a3271b;
+  --ouro: #b7791f;
+  --ouro-bg: #fdf6e3;
+  --ouro-borda: #e7c77a;
   --font-marca: "Sora", "Inter", system-ui, sans-serif;
   --font-display: "Barlow Condensed", "Arial Narrow", system-ui, sans-serif;
   --font-body: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
@@ -41,6 +44,7 @@
     --etiqueta-bg: #a6d483; --etiqueta-fg: #172010;
     --cabos: #e48a4b; --pisos: #d38bc7; --assa: #7fa8e8; --warn: #f0b35a; --warn-soft: #3a2d18;
     --erro: #f4a582; --erro-soft: #3a2218;
+    --ouro: #f2c14e; --ouro-bg: #2f2a1a; --ouro-borda: #6b5a2a;
     --st-nova: #a3ac98; --st-contato: #7fa8e8; --st-visita: #d38bc7; --st-proposta: #e48a4b; --st-fechada: #b5dc93; --st-perdida: #f4a582;
     color-scheme: dark;
   }
@@ -304,3 +308,67 @@ body.com-painel #conteudo { max-width: none; margin-right: calc(var(--painel-w) 
 /* obra aberta no painel fica destacada na lista */
 .linha-obra.selecionada { background: var(--marca-suave); box-shadow: inset 4px 0 0 var(--marca-texto); }
 .ficha.selecionada { outline: 3px solid var(--marca-texto); outline-offset: -1px; }
+
+/* ---------- construtoras ---------- */
+.num { font-variant-numeric: tabular-nums; }
+.estrela { width: 44px; height: 44px; border-radius: 50%; border: 1px solid var(--line); background: var(--surface); color: var(--muted);
+  font-size: 22px; line-height: 1; cursor: pointer; display: inline-grid; place-items: center; flex: none; }
+.estrela[aria-pressed="true"] { color: var(--ouro); border-color: var(--ouro-borda); background: var(--ouro-bg); }
+.chip.estrela-chip { --c: var(--ouro); }
+.chip.estrela-chip span[aria-hidden] { color: var(--ouro); }
+.chip.estrela-chip[aria-pressed="true"] span[aria-hidden] { color: var(--surface); }
+.papeis { display: flex; flex-wrap: wrap; gap: 4px; }
+.papel { font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 6px; background: var(--surface-2); color: var(--muted); }
+
+/* lista de construtoras: ★ | construtora | obras | janela | área | cidades | histórico | equipe */
+.cab-emp, .linha-emp {
+  display: grid; align-items: center; gap: 12px; padding: 10px 16px;
+  grid-template-columns: 44px minmax(220px, 2.4fr) 70px minmax(150px, 1.4fr) 96px minmax(120px, 1.1fr) minmax(130px, 1.1fr) minmax(100px, 0.9fr);
+}
+.linha-emp { border-top: 1px solid var(--line); min-height: 72px; cursor: pointer; }
+.linha-emp:hover { background: var(--surface-2); }
+.linha-emp:focus-visible { outline: 2px solid var(--marca-texto); outline-offset: -2px; }
+.linha-emp.selecionada { background: var(--marca-suave); box-shadow: inset 4px 0 0 var(--marca-texto); }
+.linha-emp > div { min-width: 0; display: grid; gap: 3px; }
+.c-nome .t { font-weight: 600; font-size: 16px; line-height: 1.3; overflow-wrap: anywhere; }
+.c-nome .s { font-size: 12.5px; color: var(--muted); }
+.c-n b { font-family: var(--font-display); font-size: 24px; font-weight: 700; line-height: 1; color: var(--tinta); font-variant-numeric: tabular-nums; }
+.c-n small, .c-hist .fraco { font-size: 12.5px; color: var(--muted); }
+.c-jan { display: flex !important; flex-wrap: wrap; gap: 4px; align-items: center; }
+.c-jan b { font-family: var(--font-display); font-size: 20px; margin-right: 2px; }
+.linha-emp .c-area { text-align: right; }
+.c-cid, .c-eq, .c-hist { font-size: 14px; }
+.cab-emp > :nth-child(5) { text-align: right; }
+@container (max-width: 1060px) {
+  .cab-emp { display: none; }
+  .linha-emp { grid-template-columns: 44px minmax(0, 1.5fr) minmax(0, 1fr) auto;
+    grid-template-areas: "est nome nome n" "est jan cid area" "est hist eq eq"; gap: 8px 14px; padding: 12px 16px; }
+  .c-est { grid-area: est; align-self: start; } .c-nome { grid-area: nome; } .c-n { grid-area: n; text-align: right; }
+  .c-jan { grid-area: jan; } .c-cid { grid-area: cid; } .linha-emp .c-area { grid-area: area; } .c-hist { grid-area: hist; } .c-eq { grid-area: eq; }
+}
+@container (max-width: 560px) {
+  .linha-emp { grid-template-columns: 44px minmax(0, 1fr) auto; grid-template-areas: "est nome n" "est jan jan" "est cid area" "est hist hist" "est eq eq"; }
+}
+
+/* painel: voltar, números da construtora, empresas da obra, obras em miniatura */
+.voltar { all: unset; cursor: pointer; display: block; padding: 10px 16px; font-weight: 600; color: var(--marca-texto); border-bottom: 1px solid var(--line); }
+.voltar:focus-visible { outline: 2px solid var(--marca-texto); outline-offset: -2px; }
+.numeros { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.numeros > div { background: var(--surface-2); border-radius: 10px; padding: 10px 12px; display: grid; gap: 2px; }
+.numeros b { font-family: var(--font-display); font-size: 26px; font-weight: 700; line-height: 1; color: var(--tinta); font-variant-numeric: tabular-nums; }
+.numeros span { font-size: 13px; color: var(--muted); }
+.empresas-obra { display: grid; gap: 8px; }
+.emp-item { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; }
+.emp-item > div { display: grid; gap: 2px; flex: 1; min-width: 0; }
+.emp-item b { overflow-wrap: anywhere; }
+.obras-mini { display: grid; gap: 8px; }
+.obra-mini { all: unset; cursor: pointer; display: grid; gap: 4px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+.obra-mini:hover { background: var(--surface-2); }
+.obra-mini:focus-visible { outline: 2px solid var(--marca-texto); outline-offset: 2px; }
+.topo-mini { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.topo-mini .mun { font-family: var(--font-display); font-weight: 700; font-size: 16px; text-transform: uppercase; color: var(--tinta); }
+.topo-mini b { margin-left: auto; font-variant-numeric: tabular-nums; }
+.tipo-mini { display: inline-flex; align-items: center; gap: 4px; font-size: 12.5px; font-weight: 600; color: var(--muted); }
+.tipo-mini .ico { width: 14px; height: 14px; }
+.obra-mini .t { font-weight: 600; overflow-wrap: anywhere; }
+.rodape-mini { display: flex; flex-wrap: wrap; gap: 4px 6px; align-items: center; font-size: 13px; }

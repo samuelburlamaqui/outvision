@@ -88,6 +88,7 @@
   const E = {
     sb: null, eu: null, perfis: [], obras: new Map(), enc: [], acomp: new Map(), notas: new Map(),
     vista: "", filtros: {}, lista: [], mostradas: 0, baseNova: null, modo: lerModo(),
+    links: new Map(), empresas: new Map(), salvas: new Set(), construtoras: new Map(), temEmpresas: false,
   };
   const ehAdmin = () => E.eu && E.eu.papel === "admin";
   const nomeDe = (id) => { const p = E.perfis.find((x) => x.id === id); return p ? p.nome || p.email : "—"; };
@@ -168,11 +169,39 @@
       obras = await paginar(() => sb.from("obras").select(COLS).order("cno"));
     }
     E.obras = new Map(obras.map((o) => [o.cno, calcular(o)]));
+    await carregarEmpresas();
     // "nova" = entrou na base depois da primeira carga, nos últimos 14 dias
     const datas = obras.map((o) => o.primeira_vez_em).filter(Boolean).sort();
     const base = datas.length ? new Date(datas[0]).getTime() + 86400000 : Infinity;
     const limite = Date.now() - 14 * 86400000;
     obras.forEach((o) => { const t = new Date(o.primeira_vez_em).getTime(); o.nova = t > base && t > limite; });
+  }
+
+  // empresas ligadas às obras carregadas, e as construtoras salvas pelo usuário
+  async function carregarEmpresas() {
+    const sb = E.sb, emBlocos = (lista, n) => Array.from({ length: Math.ceil(lista.length / n) }, (_, i) => lista.slice(i * n, i * n + n));
+    try {
+      const cnos = [...E.obras.keys()];
+      const partes = await Promise.all(emBlocos(cnos, 150).map((b) =>
+        sb.from("obra_empresas").select("cno,cnpj,cnpj_basico,papel,qualificacao,ativo").in("cno", b)));
+      const links = [];
+      partes.forEach(({ data, error }) => { if (error) throw error; links.push(...data); });
+      const basicos = [...new Set(links.map((l) => l.cnpj_basico))];
+      const [emps, salvas] = await Promise.all([
+        Promise.all(emBlocos(basicos, 150).map((b) => sb.from("empresas").select("cnpj_basico,nome,cnpjs,obras_total,obras_ativas,primeira_obra,ultima_obra").in("cnpj_basico", b))),
+        paginar(() => sb.from("empresas_salvas").select("cnpj_basico").eq("usuario_id", E.eu.id).order("cnpj_basico")),
+      ]);
+      E.empresas = new Map();
+      emps.forEach(({ data, error }) => { if (error) throw error; data.forEach((e) => E.empresas.set(e.cnpj_basico, e)); });
+      E.links = new Map();
+      links.forEach((l) => { if (!E.links.has(l.cno)) E.links.set(l.cno, []); E.links.get(l.cno).push(l); });
+      E.salvas = new Set(salvas.map((x) => x.cnpj_basico));
+      E.temEmpresas = true;
+      montarConstrutoras();
+    } catch (e) {
+      console.warn("construtoras indisponíveis", e);
+      E.temEmpresas = false;
+    }
   }
 
   // ------------------------------------------------------------ entrada e sessão
@@ -239,7 +268,7 @@
   function rota() {
     if (!E.eu) return;
     let v = (location.hash || "").replace("#", "");
-    if (!["todas", "minhas", "equipe"].includes(v) || (!ehAdmin() && v !== "minhas")) v = ehAdmin() ? "todas" : "minhas";
+    if (!["todas", "minhas", "construtoras", "equipe"].includes(v) || (!ehAdmin() && ["todas", "equipe"].includes(v))) v = ehAdmin() ? "todas" : "minhas";
     E.vista = v;
     renderAbas();
     renderVista();
@@ -250,6 +279,7 @@
     const abas = [];
     if (ehAdmin()) abas.push(["todas", "Todas as obras", [...E.obras.values()].filter((o) => o.recorte).length]);
     abas.push(["minhas", "Minhas obras", minhas]);
+    abas.push(["construtoras", "Construtoras", E.construtoras.size]);
     if (ehAdmin()) abas.push(["equipe", "Equipe", E.perfis.length]);
     $("abas").innerHTML = abas.map(([id, rot, n]) =>
       `<a href="#${id}" ${E.vista === id ? 'aria-current="page"' : ""}>${esc(rot)} <span class="cont">${nf.format(n)}</span></a>`).join("");
@@ -257,7 +287,7 @@
 
   // ------------------------------------------------------------ listas de obras
   function filtrosPadrao(v) {
-    return { busca: "", mun: "", dest: "", janela: "", enc: "", status: "", ordem: v === "minhas" ? "proxima" : "prioridade" };
+    return { busca: "", mun: "", dest: "", janela: "", enc: "", status: "", salvas: false, ordem: v === "minhas" ? "proxima" : "prioridade" };
   }
   function baseDaVista() {
     const todas = [...E.obras.values()];
@@ -267,6 +297,7 @@
   function renderVista() {
     const c = $("conteudo");
     if (E.vista === "equipe") return renderEquipe();
+    if (E.vista === "construtoras") return renderConstrutoras();
     const f = (E.filtros[E.vista] = E.filtros[E.vista] || filtrosPadrao(E.vista));
     const base = baseDaVista();
     const porMun = {}, porDest = {};
@@ -293,7 +324,10 @@
           ${filtroEnc}
           <div class="campo"><label for="f-ordem">Ordenar por</label><select id="f-ordem">${ordens.map(([k, r]) => `<option value="${k}" ${f.ordem === k ? "selected" : ""}>${r}</option>`).join("")}</select></div>
         </div>
-        <div class="chips" id="chips" role="group" aria-label="${E.vista === "minhas" ? "Andamento" : "Momento da obra"}"></div>
+        <div class="linha" style="justify-content:space-between">
+          <div class="chips" id="chips" role="group" aria-label="${E.vista === "minhas" ? "Andamento" : "Momento da obra"}"></div>
+          ${E.temEmpresas ? `<label class="toggle"><input type="checkbox" id="f-salvas" ${f.salvas ? "checked" : ""}> Só de minhas construtoras ★</label>` : ""}
+        </div>
       </section>
       <div class="resumo">
         <span><strong id="qtd">0</strong> <span id="qtd-rot">obras</span> <small class="hoje-rot">· fase calculada para hoje, ${HOJE.toLocaleDateString("pt-BR")}</small></span>
@@ -310,7 +344,7 @@
     const f = E.filtros[E.vista];
     const q = sem(f.busca.trim());
     return baseDaVista().filter((o) => (!q || o.busca.includes(q)) && (!f.mun || o.municipio === f.mun) &&
-      (!f.dest || (o.destinacao || "Não informado") === f.dest) &&
+      (!f.dest || (o.destinacao || "Não informado") === f.dest) && (!f.salvas || deEmpresaSalva(o.cno)) &&
       (!f.enc || (f.enc === "sem" ? !encDe(o.cno).length : f.enc === "com" ? encDe(o.cno).length > 0 : encDe(o.cno).some((e) => e.vendedor_id === f.enc))));
   }
   // desenha os botões de filtro com as contagens atuais; devolve o teste do botão escolhido
@@ -548,9 +582,15 @@
     }
     dlg.scrollTop = 0;
   }
-  function marcarSelecionada(cno) {
+  function marcarSelecionada(valor, attr = "cno") {
     document.querySelectorAll("#grade .selecionada").forEach((el) => el.classList.remove("selecionada"));
-    if (cno) { const el = document.querySelector(`#grade [data-cno="${CSS.escape(cno)}"]`); if (el) el.classList.add("selecionada"); }
+    if (valor) { const el = document.querySelector(`#grade [data-${attr}="${CSS.escape(valor)}"]`); if (el) el.classList.add("selecionada"); }
+  }
+  // reabre o que está no painel (obra ou construtora), depois de uma alteração
+  function reabrir() {
+    const d = $("detalhe");
+    if (d.dataset.cno) return abrirDetalhe(d.dataset.cno, d.dataset.voltar || null);
+    if (d.dataset.basico) return abrirEmpresa(d.dataset.basico);
   }
 
   // ------------------------------------------------------------ painel de detalhes e anotações
@@ -560,7 +600,7 @@
     const opcoes = E.perfis.filter((p) => p.ativo && !ja.has(p.id));
     return `<div class="linha">${opcoes.length ? `<select data-encaminhar="${esc(o.cno)}" aria-label="Encaminhar obra"><option value="">Encaminhar para…</option>${opcoes.map((p) => `<option value="${esc(p.id)}">${esc(p.nome || p.email)}</option>`).join("")}</select>` : ""}${tirar}</div>`;
   }
-  async function abrirDetalhe(cno) {
+  async function abrirDetalhe(cno, voltar) {
     const o = E.obras.get(cno);
     if (!o) return;
     const h = cabecalhoObra(o);
@@ -573,12 +613,14 @@
     const dlg = $("detalhe");
     dlg.innerHTML = `
       <div class="cab-dialog"><h3>${esc(o.tNome)}</h3><button class="btn discreto" type="button" data-fechar aria-label="Fechar">${ico("fechar")}</button></div>
+      ${voltar && E.construtoras.get(voltar) ? `<button class="voltar" type="button" data-abrir-empresa="${esc(voltar)}">← ${esc(E.construtoras.get(voltar).nome)}</button>` : ""}
       ${h.cidade}
       <div class="conteudo">
         ${h.tipos}${h.resp}${h.local}${blocoTempo(o)}
         ${minha(cno) ? `<section><h4>Meu andamento</h4>${(E.vistaDialog = true, seletorStatus(o))}</section>` : ""}
         <section><h4>Andamento da equipe</h4><div class="atribuidos">${andamento}</div>${ehAdmin() ? controleEncaminhar(o) : ""}</section>
-        ${o.tVinc ? `<section><h4>Empresas ligadas à obra</h4><p style="margin:0">${esc(o.tVinc)}</p></section>` : ""}
+        ${E.temEmpresas && (E.links.get(cno) || []).length ? `<section><h4>Empresas desta obra</h4><div class="empresas-obra">${empresasDaObra(cno)}</div></section>`
+          : o.tVinc ? `<section><h4>Empresas ligadas à obra</h4><p style="margin:0">${esc(o.tVinc)}</p></section>` : ""}
         <section><h4>Anotações</h4>
           <form id="form-nota" class="notas">
             <textarea id="nota-texto" placeholder="Ex.: Falei com o engenheiro Carlos, pediu proposta de porcelanato para o hall." maxlength="5000"></textarea>
@@ -590,6 +632,8 @@
       </div>`;
     E.vistaDialog = false;
     dlg.dataset.cno = cno;
+    dlg.dataset.basico = "";
+    dlg.dataset.voltar = voltar || "";
     abrirPainel(dlg);
     marcarSelecionada(cno);
     await carregarNotas(cno);
@@ -630,6 +674,221 @@
       await carregarNotas(cno); atualizarFicha(cno);
     }
   });
+
+  // ------------------------------------------------------------ construtoras
+  const PAPEL = { "0053": "Construtora", "0057": "Dona da obra", "0070": "Proprietária", "0064": "Incorporadora",
+    "0109": "Consórcio", "0110": "Construção coletiva", "0111": "Líder de consórcio" };
+  const papelDe = (l) => (l.papel === "vinculo" && l.qualificacao === "0053" ? "Construtora contratada" : PAPEL[l.qualificacao] || "Outro papel");
+  const fmtRaiz = (b) => `${b.slice(0, 2)}.${b.slice(2, 5)}.${b.slice(5, 8)}`;
+  const deEmpresaSalva = (cno) => (E.links.get(cno) || []).some((l) => E.salvas.has(l.cnpj_basico));
+
+  function montarConstrutoras() {
+    const m = new Map();
+    for (const [cno, ls] of E.links) {
+      const o = E.obras.get(cno);
+      if (!o) continue;
+      for (const l of ls) {
+        let c = m.get(l.cnpj_basico);
+        if (!c) {
+          const emp = E.empresas.get(l.cnpj_basico) || {};
+          c = { basico: l.cnpj_basico, emp, obras: new Map(), papeis: new Set(), nome: titulo(emp.nome || "CNPJ " + fmtRaiz(l.cnpj_basico)) };
+          m.set(l.cnpj_basico, c);
+        }
+        c.obras.set(cno, o);
+        c.papeis.add(papelDe(l));
+      }
+    }
+    for (const c of m.values()) resumirConstrutora(c);
+    E.construtoras = m;
+  }
+  function resumirConstrutora(c) {
+    const obras = [...c.obras.values()];
+    const cidades = new Map(), equipe = new Set(), janelas = new Map();
+    let area = 0;
+    obras.forEach((o) => {
+      cidades.set(o.municipio, (cidades.get(o.municipio) || 0) + 1);
+      area += o.susp ? 0 : o.area || 0;
+      encDe(o.cno).forEach((e) => equipe.add(nomeDe(e.vendedor_id)));
+      o.janelas.filter((j) => j.ini > 0).forEach((j) => janelas.set(j.nome, (janelas.get(j.nome) || 0) + 1));
+    });
+    Object.assign(c, {
+      lista: obras, n: obras.length, area, equipe: [...equipe],
+      naJanela: obras.filter((o) => o.janelas.some((j) => j.ini > 0)).length,
+      andamento: obras.filter((o) => !o.passou).length,
+      janelas, cidades: [...cidades.entries()].sort((a, b) => b[1] - a[1]).map(([k]) => k),
+      tipos: new Set(obras.map((o) => o.destinacao || "Não informado")),
+      busca: sem([c.nome, c.emp.nome, c.basico, fmtRaiz(c.basico), ...(c.emp.cnpjs || [])].join(" ")),
+    });
+  }
+  const ORDENS_EMP = {
+    janela: (a, b) => b.naJanela - a.naJanela || b.n - a.n || b.area - a.area,
+    obras: (a, b) => b.n - a.n || b.naJanela - a.naJanela,
+    area: (a, b) => b.area - a.area,
+    historico: (a, b) => (b.emp.obras_total || 0) - (a.emp.obras_total || 0) || b.n - a.n,
+    nome: (a, b) => a.nome.localeCompare(b.nome, "pt-BR"),
+  };
+  function renderConstrutoras() {
+    const c = $("conteudo");
+    if (!E.temEmpresas) {
+      c.innerHTML = `<p class="vazio">As construtoras ainda estão sendo preparadas no banco. Volte em alguns minutos e recarregue a página.</p>`;
+      return;
+    }
+    const f = (E.filtros.construtoras = E.filtros.construtoras || { busca: "", mun: "", dest: "", papel: "", salvas: false, ordem: "janela" });
+    for (const x of E.construtoras.values()) resumirConstrutora(x); // reflete encaminhamentos recentes
+    const todas = [...E.construtoras.values()];
+    const conta = (fn) => { const m = {}; todas.forEach((x) => fn(x).forEach((k) => (m[k] = (m[k] || 0) + 1))); return m; };
+    const opt = (obj, sel, fmt) => Object.entries(obj).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+      .map(([k, n]) => `<option value="${esc(k)}" ${k === sel ? "selected" : ""}>${esc(fmt ? fmt(k) : k)} (${n})</option>`).join("");
+    const ordens = [["janela", "Mais obras na janela agora"], ["obras", "Mais obras"], ["area", "Maior área somada"], ["historico", "Mais obras no histórico"], ["nome", "Nome (A–Z)"]];
+    c.innerHTML = `
+      <section class="painel" aria-label="Filtros">
+        <div class="linha">
+          <div class="campo largo"><label for="f-busca">Buscar</label><input id="f-busca" type="search" value="${esc(f.busca)}" placeholder="Nome da empresa ou CNPJ…" autocomplete="off"></div>
+          <div class="campo"><label for="f-mun">Com obra em</label><select id="f-mun"><option value="">Todos os municípios</option>${opt(conta((x) => x.cidades), f.mun, titulo)}</select></div>
+          <div class="campo"><label for="f-dest">Com obra do tipo</label><select id="f-dest"><option value="">Todos os tipos</option>${opt(conta((x) => [...x.tipos]), f.dest)}</select></div>
+          <div class="campo"><label for="f-papel">Papel</label><select id="f-papel"><option value="">Todos</option>${opt(conta((x) => [...x.papeis]), f.papel)}</select></div>
+          <div class="campo"><label for="f-ordem">Ordenar por</label><select id="f-ordem">${ordens.map(([k, r]) => `<option value="${k}" ${f.ordem === k ? "selected" : ""}>${r}</option>`).join("")}</select></div>
+        </div>
+        <div class="chips" id="chips" role="group" aria-label="Quais construtoras"></div>
+      </section>
+      <div class="resumo"><span><strong id="qtd">0</strong> <span id="qtd-rot">construtoras</span> <small class="hoje-rot">· obras e fases calculadas para hoje, ${HOJE.toLocaleDateString("pt-BR")}</small></span></div>
+      <div class="lista" id="grade"></div>
+      <button class="btn mais" id="mais" type="button" hidden>Mostrar mais</button>`;
+    aplicarConstrutoras();
+  }
+  function aplicarConstrutoras() {
+    const f = E.filtros.construtoras, q = sem(f.busca.trim());
+    const base = [...E.construtoras.values()].filter((x) => (!q || x.busca.includes(q)) && (!f.mun || x.cidades.includes(f.mun)) &&
+      (!f.dest || x.tipos.has(f.dest)) && (!f.papel || x.papeis.has(f.papel)));
+    const nSalvas = base.filter((x) => E.salvas.has(x.basico)).length;
+    $("chips").innerHTML = `
+      <button type="button" class="chip todas" data-filtro-salvas="0" aria-pressed="${!f.salvas}"><span class="dot"></span>Todas <b>${nf.format(base.length)}</b></button>
+      <button type="button" class="chip estrela-chip" data-filtro-salvas="1" aria-pressed="${f.salvas}"><span aria-hidden="true">★</span> Minhas construtoras <b>${nf.format(nSalvas)}</b></button>`;
+    E.lista = base.filter((x) => !f.salvas || E.salvas.has(x.basico)).sort(ORDENS_EMP[f.ordem] || ORDENS_EMP.janela);
+    $("qtd").textContent = nf.format(E.lista.length);
+    $("qtd-rot").textContent = E.lista.length === 1 ? "construtora" : "construtoras";
+    E.mostradas = 0;
+    $("grade").innerHTML = E.lista.length ? cabecalhoEmpresas() : `<p class="vazio">${f.salvas && !nSalvas
+      ? "Você ainda não salvou nenhuma construtora. Toque na ☆ ao lado do nome para salvar."
+      : "Nenhuma construtora com esses filtros."}</p>`;
+    desenharMaisEmpresas();
+  }
+  function desenharMaisEmpresas() {
+    const lote = E.lista.slice(E.mostradas, E.mostradas + LOTE_LISTA);
+    $("grade").insertAdjacentHTML("beforeend", lote.map(linhaEmpresa).join(""));
+    E.mostradas += lote.length;
+    const falta = E.lista.length - E.mostradas;
+    $("mais").hidden = falta <= 0;
+    $("mais").textContent = `Mostrar mais ${nf.format(Math.min(LOTE_LISTA, falta))} de ${nf.format(falta)}`;
+  }
+  function cabecalhoEmpresas() {
+    const f = E.filtros.construtoras;
+    const col = (rot, ordem) => ordem ? `<button type="button" data-ordenar="${ordem}">${rot}${f.ordem === ordem ? " ▾" : ""}</button>` : `<span>${rot}</span>`;
+    return `<div class="cab-lista cab-emp" aria-hidden="true"><span></span>${col("Construtora", "nome")}${col("Obras", "obras")}${col("Na janela agora", "janela")}${col("Área", "area")}<span>Cidades</span>${col("Histórico", "historico")}<span>Equipe</span></div>`;
+  }
+  function estrela(basico) {
+    const on = E.salvas.has(basico);
+    return `<button type="button" class="estrela" data-estrela="${esc(basico)}" aria-pressed="${on}" aria-label="${on ? "Tirar de" : "Salvar em"} minhas construtoras">${on ? "★" : "☆"}</button>`;
+  }
+  function janelasResumo(c) {
+    if (!c.naJanela) return `<span class="fraco">nenhuma agora</span>`;
+    return `<b class="num">${c.naJanela}</b> ` + JANELAS.filter((j) => c.janelas.get(j.nome)).map((j) => `<span class="mini" style="--c:${j.cor}">${esc(JANELA_CURTA[j.nome])} ${c.janelas.get(j.nome)}</span>`).join("");
+  }
+  function historico(c) {
+    const e = c.emp;
+    if (!e.obras_total) return `<span class="fraco">—</span>`;
+    return `<span>${nf.format(e.obras_total)} obra${e.obras_total === 1 ? "" : "s"} no PA</span><span class="fraco">desde ${e.primeira_obra ? e.primeira_obra.slice(0, 4) : "?"} · última ${e.ultima_obra ? e.ultima_obra.slice(5, 7) + "/" + e.ultima_obra.slice(0, 4) : "?"}</span>`;
+  }
+  function linhaEmpresa(c) {
+    const filiais = (c.emp.cnpjs || []).length;
+    const cid = c.cidades.slice(0, 2).map(titulo).join(", ") + (c.cidades.length > 2 ? ` +${c.cidades.length - 2}` : "");
+    return `<div class="linha-emp" data-basico="${esc(c.basico)}" tabindex="0" role="button" aria-label="Abrir ${esc(c.nome)}">
+      <div class="c-est">${estrela(c.basico)}</div>
+      <div class="c-nome"><span class="t">${esc(c.nome)}</span>
+        <span class="s mono">${fmtRaiz(c.basico)}${filiais > 1 ? ` · ${filiais} CNPJs (matriz e filiais)` : ""}</span>
+        <span class="papeis">${[...c.papeis].map((p) => `<span class="papel">${esc(p)}</span>`).join("")}</span></div>
+      <div class="c-n"><b>${c.n}</b><small>${c.andamento} em andamento</small></div>
+      <div class="c-jan">${janelasResumo(c)}</div>
+      <div class="c-area"><b>${nf.format(Math.round(c.area))}</b><small>m²</small></div>
+      <div class="c-cid">${esc(cid)}</div>
+      <div class="c-hist">${historico(c)}</div>
+      <div class="c-eq">${c.equipe.length ? esc(c.equipe.join(", ")) : '<span class="fraco">ninguém ainda</span>'}</div>
+    </div>`;
+  }
+  function atualizarLinhaEmpresa(basico) {
+    const el = document.querySelector(`#grade .linha-emp[data-basico="${CSS.escape(basico)}"]`);
+    const c = E.construtoras.get(basico);
+    if (el && c) { resumirConstrutora(c); el.outerHTML = linhaEmpresa(c); }
+  }
+  async function alternarSalva(basico) {
+    const salvar = !E.salvas.has(basico);
+    const q = salvar ? E.sb.from("empresas_salvas").insert({ usuario_id: E.eu.id, cnpj_basico: basico })
+      : E.sb.from("empresas_salvas").delete().eq("usuario_id", E.eu.id).eq("cnpj_basico", basico);
+    const { error } = await q;
+    if (error) return falha(error, "Não foi possível salvar");
+    salvar ? E.salvas.add(basico) : E.salvas.delete(basico);
+    const nome = (E.construtoras.get(basico) || {}).nome || "Construtora";
+    toast(salvar ? `${nome} salva em Minhas construtoras` : `${nome} tirada de Minhas construtoras`);
+    document.querySelectorAll(`[data-estrela="${CSS.escape(basico)}"]`).forEach((b) => { b.outerHTML = estrela(basico); });
+    if (E.vista === "construtoras" && $("chips")) {
+      if (E.filtros.construtoras.salvas) aplicarConstrutoras();
+      else { const n = [...E.construtoras.keys()].filter((k) => E.salvas.has(k)).length; const b = document.querySelector('[data-filtro-salvas="1"] b'); if (b) b.textContent = nf.format(n); }
+    }
+    const d = $("detalhe");
+    if (d.open && d.dataset.basico === basico) abrirEmpresa(basico);
+  }
+  function empresasDaObra(cno) {
+    const porRaiz = new Map();
+    (E.links.get(cno) || []).forEach((l) => { if (!porRaiz.has(l.cnpj_basico)) porRaiz.set(l.cnpj_basico, new Set()); porRaiz.get(l.cnpj_basico).add(papelDe(l)); });
+    return [...porRaiz.entries()].map(([b, papeis]) => {
+      const c = E.construtoras.get(b);
+      const nome = c ? c.nome : titulo((E.empresas.get(b) || {}).nome || "CNPJ " + fmtRaiz(b));
+      return `<div class="emp-item">${estrela(b)}<div><b>${esc(nome)}</b><span class="fraco">${esc([...papeis].join(" · "))}${c && c.n > 1 ? ` · ${c.n} obras no radar` : ""}</span></div>
+        ${c ? `<button class="btn" type="button" data-abrir-empresa="${esc(b)}">Ver construtora</button>` : ""}</div>`;
+    }).join("");
+  }
+  function linhaMini(o) {
+    const vend = encDe(o.cno).map((e) => nomeDe(e.vendedor_id)).join(", ");
+    return `<button type="button" class="obra-mini" data-abrir-obra="${esc(o.cno)}">
+      <span class="topo-mini"><span class="mun">${esc(o.municipio)}</span><span class="tipo-mini">${ico(ICONE[o.destinacao] || "predio")}${esc(TIPO_CURTO[o.destinacao] || o.destinacao || "—")}</span><b>${o.area ? nf.format(Math.round(o.area)) + " m²" : "–"}</b></span>
+      <span class="t">${esc(o.tNome)}</span>
+      <span class="rodape-mini"><span>${esc(o.fase)}${o.pct == null ? "" : " · " + nf.format(Math.round(o.pct)) + "%"}</span>
+        ${o.janelas.filter((j) => j.ini > 0).map((j) => `<span class="mini" style="--c:${j.cor}">${esc(JANELA_CURTA[j.nome])}</span>`).join("")}
+        ${vend ? `<span class="fraco">· ${esc(vend)}</span>` : ""}</span>
+    </button>`;
+  }
+  function abrirEmpresa(basico) {
+    const c = E.construtoras.get(basico);
+    if (!c) return;
+    resumirConstrutora(c);
+    const e = c.emp, salva = E.salvas.has(basico);
+    const obras = [...c.lista].sort(prioridade);
+    const dlg = $("detalhe");
+    dlg.innerHTML = `
+      <div class="cab-dialog"><h3>${esc(c.nome)}</h3><button class="btn discreto" type="button" data-fechar aria-label="Fechar">${ico("fechar")}</button></div>
+      <div class="cidade"><div class="lugar"><span class="mun" style="font-size:18px">${esc(c.nome)}</span><span class="bairro mono">CNPJ ${fmtRaiz(basico)}${(e.cnpjs || []).length > 1 ? ` · ${(e.cnpjs || []).length} CNPJs` : ""}</span></div>
+        <div class="area"><b>${c.n}</b><small>obra${c.n === 1 ? "" : "s"}</small></div></div>
+      <div class="conteudo">
+        <button class="btn ${salva ? "" : "primario"}" type="button" data-estrela="${esc(basico)}">${salva ? "★ Salva em Minhas construtoras · tirar" : "☆ Salvar em Minhas construtoras"}</button>
+        <div class="papeis">${[...c.papeis].map((p) => `<span class="papel">${esc(p)}</span>`).join("")}</div>
+        <div class="numeros">
+          <div><b>${c.naJanela}</b><span>na janela de produto agora</span></div>
+          <div><b>${c.andamento}</b><span>em andamento (pelo prazo)</span></div>
+          <div><b>${nf.format(Math.round(c.area))}</b><span>m² somados</span></div>
+          <div><b>${e.obras_total ? nf.format(e.obras_total) : "–"}</b><span>obras no PA desde ${e.primeira_obra ? e.primeira_obra.slice(0, 4) : "?"}</span></div>
+        </div>
+        ${c.naJanela ? `<div class="agora"><span class="rot">Janelas abertas:</span>${janelasResumo(c)}</div>` : ""}
+        <section><h4>Cidades</h4><p style="margin:0">${esc(c.cidades.map(titulo).join(", "))}</p></section>
+        <section><h4>Equipe atendendo</h4><p style="margin:0">${c.equipe.length ? esc(c.equipe.join(", ")) : "Nenhuma obra desta construtora encaminhada ainda."}</p></section>
+        <section><h4>Obras no radar (${c.n})</h4><div class="obras-mini">${obras.map(linhaMini).join("")}</div></section>
+        <p class="fraco" style="margin:0">Telefone e e-mail entram aqui na próxima etapa (consulta de CNPJ).</p>
+      </div>`;
+    dlg.dataset.cno = "";
+    dlg.dataset.voltar = "";
+    dlg.dataset.basico = basico;
+    abrirPainel(dlg);
+    marcarSelecionada(basico, "basico");
+  }
 
   // ------------------------------------------------------------ equipe (admin)
   function renderEquipe() {
@@ -674,11 +933,13 @@
   const conteudo = $("conteudo");
   let tBusca;
   conteudo.addEventListener("input", (ev) => {
-    if (ev.target.id === "f-busca") { E.filtros[E.vista].busca = ev.target.value; clearTimeout(tBusca); tBusca = setTimeout(aplicar, 180); }
+    if (ev.target.id === "f-busca") { E.filtros[E.vista].busca = ev.target.value; clearTimeout(tBusca); tBusca = setTimeout(E.vista === "construtoras" ? aplicarConstrutoras : aplicar, 180); }
   });
   conteudo.addEventListener("change", (ev) => {
     const t = ev.target, f = E.filtros[E.vista];
-    const mapa = { "f-mun": "mun", "f-dest": "dest", "f-enc": "enc", "f-ordem": "ordem" };
+    const mapa = { "f-mun": "mun", "f-dest": "dest", "f-enc": "enc", "f-ordem": "ordem", "f-papel": "papel" };
+    if (t.id === "f-salvas") { f.salvas = t.checked; return E.vista === "construtoras" ? aplicarConstrutoras() : aplicar(); }
+    if (mapa[t.id] && E.vista === "construtoras") { f[mapa[t.id]] = t.value; return aplicarConstrutoras(); }
     if (mapa[t.id]) { f[mapa[t.id]] = t.value; return aplicar(); }
     if (t.dataset.encaminhar && t.value) return encaminhar(t.dataset.encaminhar, t.value);
     if (t.dataset.statusObra) return salvarAcomp(t.dataset.statusObra, { status: t.value });
@@ -691,43 +952,52 @@
     const chipJ = t.closest("[data-filtro-janela]"); if (chipJ) { E.filtros[E.vista].janela = chipJ.dataset.filtroJanela; return aplicar(); }
     const chipS = t.closest("[data-filtro-status]"); if (chipS) { E.filtros[E.vista].status = chipS.dataset.filtroStatus; return aplicar(); }
     const det = t.closest("[data-detalhe]"); if (det) return abrirDetalhe(det.dataset.detalhe);
+    const est = t.closest("[data-estrela]"); if (est) return alternarSalva(est.dataset.estrela);
+    const chipC = t.closest("[data-filtro-salvas]"); if (chipC) { E.filtros.construtoras.salvas = chipC.dataset.filtroSalvas === "1"; return aplicarConstrutoras(); }
+    const emp = t.closest(".linha-emp"); if (emp && !t.closest("select, button, a, input, label")) return abrirEmpresa(emp.dataset.basico);
     const rem = t.closest("[data-remover]"); if (rem) return remover(rem.dataset.remover, rem.dataset.vendedor);
     const cop = t.closest("[data-copiar]"); if (cop) return copiar(cop);
-    if (t.id === "mais") return desenharMais();
+    if (t.id === "mais") return E.vista === "construtoras" ? desenharMaisEmpresas() : desenharMais();
     const modo = t.closest("[data-modo]");
     if (modo) { E.modo = modo.dataset.modo; gravarModo(E.modo); return renderVista(); }
     const ord = t.closest("[data-ordenar]");
-    if (ord) { E.filtros[E.vista].ordem = ord.dataset.ordenar; const s = $("f-ordem"); if (s) s.value = ord.dataset.ordenar; return aplicar(); }
+    if (ord) { E.filtros[E.vista].ordem = ord.dataset.ordenar; const s = $("f-ordem"); if (s) s.value = ord.dataset.ordenar; return E.vista === "construtoras" ? aplicarConstrutoras() : aplicar(); }
     const lin = t.closest(".linha-obra");
     if (lin && !t.closest("select, button, a, input, label")) return abrirDetalhe(lin.dataset.cno);
   });
   conteudo.addEventListener("keydown", (ev) => {
     if ((ev.key === "Enter" || ev.key === " ") && ev.target.classList && ev.target.classList.contains("linha-obra")) { ev.preventDefault(); abrirDetalhe(ev.target.dataset.cno); }
+    if ((ev.key === "Enter" || ev.key === " ") && ev.target.classList && ev.target.classList.contains("linha-emp")) { ev.preventDefault(); abrirEmpresa(ev.target.dataset.basico); }
   });
   // encaminhar e tirar também pelo painel de detalhes
   $("detalhe").addEventListener("change", async (ev) => {
     const t = ev.target;
-    if (t.dataset.encaminhar && t.value) { await encaminhar(t.dataset.encaminhar, t.value); abrirDetalhe(t.dataset.encaminhar); }
+    if (t.dataset.encaminhar && t.value) { await encaminhar(t.dataset.encaminhar, t.value); reabrir(); }
   });
   $("detalhe").addEventListener("click", async (ev) => {
     const r = ev.target.closest("[data-remover]");
-    if (r) { await remover(r.dataset.remover, r.dataset.vendedor); abrirDetalhe(r.dataset.remover); }
+    if (r) { await remover(r.dataset.remover, r.dataset.vendedor); return reabrir(); }
+    const ab = ev.target.closest("[data-abrir-empresa]"); if (ab) return abrirEmpresa(ab.dataset.abrirEmpresa);
+    const ao = ev.target.closest("[data-abrir-obra]"); if (ao && !ev.target.closest("select, input")) return abrirDetalhe(ao.dataset.abrirObra, $("detalhe").dataset.basico || null);
+    const es = ev.target.closest("[data-estrela]"); if (es) return alternarSalva(es.dataset.estrela);
   });
   // andamento também pode ser alterado dentro do painel de detalhes
   $("detalhe").addEventListener("change", (ev) => {
     const t = ev.target;
-    if (t.dataset.statusObra) salvarAcomp(t.dataset.statusObra, { status: t.value }).then(() => abrirDetalhe(t.dataset.statusObra));
+    if (t.dataset.statusObra) salvarAcomp(t.dataset.statusObra, { status: t.value }).then(reabrir);
     else if (t.matches("[data-proxima]")) salvarAcomp(t.dataset.proxima, { proxima_acao: t.value || null });
   });
   $("detalhe").addEventListener("close", () => {
     document.body.classList.remove("com-painel");
     const cno = $("detalhe").dataset.cno;
     if (cno) atualizarFicha(cno);
+    const bas = $("detalhe").dataset.basico;
+    if (bas) atualizarLinhaEmpresa(bas);
     marcarSelecionada(null);
   });
   document.addEventListener("keydown", (ev) => { if (ev.key === "Escape" && $("detalhe").open && !$("detalhe").matches(":modal")) $("detalhe").close(); });
   // ao virar o tablet com o painel aberto, troca entre lado a lado e sobreposto
-  TELA_LARGA.addEventListener("change", () => { const d = $("detalhe"); if (d.open) { d.close(); abrirDetalhe(d.dataset.cno); } });
+  TELA_LARGA.addEventListener("change", () => { const d = $("detalhe"); if (d.open) { const c = d.dataset.cno, b = d.dataset.basico, v = d.dataset.voltar; d.close(); if (c) abrirDetalhe(c, v || null); else if (b) abrirEmpresa(b); } });
   window.addEventListener("resize", medirTopo);
   $("detalhe").addEventListener("click", (ev) => { const c = ev.target.closest("[data-copiar]"); if (c) copiar(c); });
 
