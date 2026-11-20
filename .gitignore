@@ -7,3 +7,6 @@ venv/
 dados_brutos/
 # dados de obras (nomes, endereços): ficam fora do repositório público
 app/obras.json
+
+# gerado no build da Cloudflare
+site/config.js
