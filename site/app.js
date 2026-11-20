@@ -442,6 +442,8 @@
     const el = document.querySelector(`#grade [data-cno="${CSS.escape(cno)}"]`);
     const o = E.obras.get(cno);
     if (el && o) el.outerHTML = el.classList.contains("linha-obra") ? linha(o) : ficha(o);
+    const d = $("detalhe");
+    if (d.open && d.dataset.cno === cno) marcarSelecionada(cno);
     renderAbas();
   }
 
@@ -527,6 +529,30 @@
     setTimeout(() => (btn.textContent = "Copiar CNPJ"), 1500);
   }
 
+  // ------------------------------------------------------------ painel lateral
+  // Tela larga: painel à direita, sem cobrir a lista (dá para tocar em outra obra).
+  // Tela estreita: o painel desliza por cima, com fundo escurecido.
+  const TELA_LARGA = window.matchMedia("(min-width: 1100px)");
+  function medirTopo() {
+    const topo = document.querySelector(".topo");
+    if (topo) document.documentElement.style.setProperty("--topo-h", topo.getBoundingClientRect().height + "px");
+  }
+  function abrirPainel(dlg) {
+    medirTopo();
+    if (TELA_LARGA.matches) {
+      if (dlg.open && dlg.matches(":modal")) dlg.close();
+      if (!dlg.open) dlg.show();
+      document.body.classList.add("com-painel");
+    } else if (!dlg.open) {
+      dlg.showModal();
+    }
+    dlg.scrollTop = 0;
+  }
+  function marcarSelecionada(cno) {
+    document.querySelectorAll("#grade .selecionada").forEach((el) => el.classList.remove("selecionada"));
+    if (cno) { const el = document.querySelector(`#grade [data-cno="${CSS.escape(cno)}"]`); if (el) el.classList.add("selecionada"); }
+  }
+
   // ------------------------------------------------------------ painel de detalhes e anotações
   function controleEncaminhar(o) {
     const encs = encDe(o.cno), ja = new Set(encs.map((e) => e.vendedor_id));
@@ -564,7 +590,8 @@
       </div>`;
     E.vistaDialog = false;
     dlg.dataset.cno = cno;
-    if (!dlg.open) dlg.showModal();
+    abrirPainel(dlg);
+    marcarSelecionada(cno);
     await carregarNotas(cno);
   }
   async function carregarNotas(cno) {
@@ -592,7 +619,8 @@
     toast("Anotação salva");
   });
   $("detalhe").addEventListener("click", async (ev) => {
-    if (ev.target === $("detalhe") || ev.target.closest("[data-fechar]")) return $("detalhe").close();
+    // fecha pelo X; no modo sobreposto (tela estreita), também tocando fora do painel
+    if (ev.target.closest("[data-fechar]") || (ev.target === $("detalhe") && $("detalhe").matches(":modal"))) return $("detalhe").close();
     const ap = ev.target.closest("[data-apagar-nota]");
     if (ap) {
       if (ap.dataset.confirmar !== "1") { ap.dataset.confirmar = "1"; ap.textContent = "toque de novo para apagar"; return; }
@@ -691,7 +719,16 @@
     if (t.dataset.statusObra) salvarAcomp(t.dataset.statusObra, { status: t.value }).then(() => abrirDetalhe(t.dataset.statusObra));
     else if (t.matches("[data-proxima]")) salvarAcomp(t.dataset.proxima, { proxima_acao: t.value || null });
   });
-  $("detalhe").addEventListener("close", () => { const cno = $("detalhe").dataset.cno; if (cno) atualizarFicha(cno); });
+  $("detalhe").addEventListener("close", () => {
+    document.body.classList.remove("com-painel");
+    const cno = $("detalhe").dataset.cno;
+    if (cno) atualizarFicha(cno);
+    marcarSelecionada(null);
+  });
+  document.addEventListener("keydown", (ev) => { if (ev.key === "Escape" && $("detalhe").open && !$("detalhe").matches(":modal")) $("detalhe").close(); });
+  // ao virar o tablet com o painel aberto, troca entre lado a lado e sobreposto
+  TELA_LARGA.addEventListener("change", () => { const d = $("detalhe"); if (d.open) { d.close(); abrirDetalhe(d.dataset.cno); } });
+  window.addEventListener("resize", medirTopo);
   $("detalhe").addEventListener("click", (ev) => { const c = ev.target.closest("[data-copiar]"); if (c) copiar(c); });
 
   iniciar().catch((e) => { console.error(e); msg("Erro ao iniciar: " + (e.message || e)); });
