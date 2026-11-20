@@ -31,7 +31,7 @@ Formato: CSV separado por vírgula, aspas em todos os campos, codificação Wind
 
 **Situação** (`cno.csv`):
 
-| Código | Significado* | Obras |
+| Código | Significado | Obras |
 |---|---|---:|
 | 02 | Ativa | 1.046.745 |
 | 15 | Encerrada | 2.523.536 |
@@ -39,8 +39,9 @@ Formato: CSV separado por vírgula, aspas em todos os campos, codificação Wind
 | 01 | Nula | 58.913 |
 | 03 | Suspensa | 10.073 |
 
-**Qualificação do responsável**: 0053 Construtora · 0057 Dono da obra · 0064 Incorporador ·
-0070 Proprietário do imóvel · 0109 Líder de consórcio · 0110 Consórcio · 0111 (a confirmar)*
+**Qualificação do responsável**: 0053 Pessoa jurídica construtora · 0057 Dono da obra ·
+0064 Incorporador de construção civil · 0070 Proprietário do imóvel · 0109 Consórcio ·
+0110 Construção em nome coletivo · 0111 Sociedade líder de consórcio
 
 **Destinação** (`cno_areas.csv`): Residencial unifamiliar · Residencial multifamiliar ·
 Comercial salas e lojas · Galpão industrial · Casa popular · Conjunto habitacional popular ·
@@ -48,7 +49,7 @@ Edifício de garagens
 
 **Categoria**: Obra nova · Existente (regularização) · Acréscimo · Reforma · Demolição
 
-\* Significados a confirmar com o PDF do dicionário de dados oficial.
+Códigos conferidos no dicionário oficial da Receita: [`dicionario/cno-metadados.txt`](dicionario/cno-metadados.txt).
 
 ## O que isso significa para a prospecção
 

@@ -22,8 +22,8 @@ sys.path.insert(0, os.path.dirname(__file__))
 import regras as R  # noqa: E402
 
 QUALIFICACAO = {"0053": "Construtora", "0057": "Dono da obra", "0064": "Incorporador",
-                "0070": "Proprietário do imóvel", "0109": "Líder de consórcio", "0110": "Consórcio",
-                "0111": "Outro (a confirmar)"}
+                "0070": "Proprietário do imóvel", "0109": "Consórcio", "0110": "Construção em nome coletivo",
+                "0111": "Líder de consórcio"}  # conferido no dicionário oficial (cno-metadados.pdf)
 
 
 def fmt_cnpj(s: str | None) -> str:
@@ -73,8 +73,9 @@ def carregar(parquet: str, ufs: list[str]) -> list[dict]:
                           substr(v."NI do responsável",3,3) || '.' || substr(v."NI do responsável",6,3) || '/' ||
                           substr(v."NI do responsável",9,4) || '-' || substr(v."NI do responsável",13,2)) || ' (' ||
                           CASE v."Qualificação do contribuinte" WHEN '0053' THEN 'construtora'
-                               WHEN '0064' THEN 'incorporadora' WHEN '0110' THEN 'consórcio'
-                               WHEN '0109' THEN 'líder de consórcio' ELSE v."Qualificação do contribuinte" END
+                               WHEN '0064' THEN 'incorporadora' WHEN '0109' THEN 'consórcio'
+                               WHEN '0110' THEN 'construção em nome coletivo' WHEN '0111' THEN 'líder de consórcio'
+                               WHEN '0057' THEN 'dono da obra' WHEN '0070' THEN 'proprietário' ELSE v."Qualificação do contribuinte" END
                           || ')', '; ') AS vinculadas
         FROM read_parquet('{parquet}/cno_vinculos.parquet') v
         LEFT JOIN nomes n ON n.ni = v."NI do responsável"

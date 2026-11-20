@@ -9,8 +9,8 @@ Lê os Parquet gerados por explorar_cno.py e responde:
   - que tipo de obra (destinação, categoria, área) e quem é o responsável (PJ x PF)
   - um primeiro recorte de "obras com potencial" para pisos/revestimentos, cabos e ASSA ABLOY
 
-Os significados dos códigos abaixo seguem o layout do CNO e ainda devem ser
-conferidos contra o dicionário de dados oficial.
+Os significados dos códigos foram conferidos no dicionário oficial
+(exploracao/dicionario/cno-metadados.txt).
 """
 from __future__ import annotations
 
@@ -26,9 +26,9 @@ QUALIFICACAO = {
     "0057": "Dono da obra",
     "0064": "Incorporador de construção civil",
     "0070": "Proprietário do imóvel",
-    "0109": "Sociedade líder de consórcio",
-    "0110": "Consórcio",
-    "0111": "(a confirmar no dicionário)",
+    "0109": "Consórcio",
+    "0110": "Construção em nome coletivo",
+    "0111": "Sociedade líder de consórcio",
 }
 CNAE = {
     "4120400": "Construção de edifícios",
@@ -130,7 +130,7 @@ def main() -> int:
     titulo = f"# CNO — análise para prospecção{' (' + a.uf.upper() + ')' if a.uf else ' (Brasil)'}"
     L += [titulo, "", f"Data de referência (registro mais recente na base): **{ref}**. "
           f"Gerado em {time.strftime('%Y-%m-%d %H:%M UTC', time.gmtime())}.", "",
-          "> Significados dos códigos de situação e qualificação ainda a conferir com o dicionário oficial.", ""]
+          "> Códigos conferidos no dicionário oficial da Receita (exploracao/dicionario/cno-metadados.txt).", ""]
 
     total, susp = con.execute("SELECT count(*), count(*) FILTER (WHERE area_suspeita) FROM base").fetchone()
     L += [f"Total de obras na base: **{fmt(total)}**. Obras com área principal acima de "
