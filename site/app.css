@@ -218,3 +218,64 @@ dialog.detalhe::backdrop { background: rgb(0 0 0 / 0.45); }
 @media (prefers-reduced-motion: no-preference) { .chip, .btn, .copiar { transition: background-color 120ms, color 120ms; } }
 .toggle { display: inline-flex; align-items: center; gap: 8px; min-height: 40px; cursor: pointer; }
 .toggle input { width: 20px; height: 20px; accent-color: var(--marca-texto); }
+
+/* ---------- seletor Lista / Fichas ---------- */
+.resumo { align-items: center; }
+.hoje-rot { font-size: 13px; color: var(--muted); }
+.modos { display: inline-flex; background: var(--surface-2); padding: 4px; border-radius: 10px; gap: 4px; }
+.modos button { display: inline-flex; align-items: center; gap: 8px; min-height: 42px; padding: 6px 16px; border: 0; border-radius: 8px;
+  background: transparent; color: var(--muted); font-weight: 600; cursor: pointer; }
+.modos button[aria-pressed="true"] { background: var(--etiqueta-bg); color: var(--etiqueta-fg); }
+
+/* ---------- lista compacta: uma linha por obra ----------
+   colunas: cidade | obra | tipo | área | fase | agora | vendedor/andamento */
+.lista { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
+.cab-lista, .linha-obra {
+  display: grid; align-items: center; gap: 14px; padding: 10px 16px;
+  grid-template-columns: minmax(120px, 1.05fr) minmax(190px, 2.3fr) minmax(160px, 1.15fr) 82px minmax(140px, 1.2fr) minmax(110px, 1fr) minmax(160px, 1.35fr);
+}
+.cab-lista { background: var(--surface-2); font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); font-weight: 600; min-height: 44px; }
+.cab-lista button { all: unset; cursor: pointer; color: var(--marca-texto); text-transform: uppercase; }
+.cab-lista button:focus-visible { outline: 2px solid var(--marca-texto); outline-offset: 2px; }
+.cab-lista > :nth-child(4) { text-align: right; }
+.linha-obra { border-top: 1px solid var(--line); min-height: 68px; cursor: pointer; }
+.linha-obra:hover { background: var(--surface-2); }
+.linha-obra:focus-visible { outline: 2px solid var(--marca-texto); outline-offset: -2px; }
+.linha-obra > div { min-width: 0; display: grid; gap: 2px; }
+.c-cidade .mun { font-family: var(--font-display); font-weight: 700; font-size: 18px; line-height: 1.1; text-transform: uppercase; letter-spacing: 0.02em; color: var(--tinta); overflow-wrap: anywhere; }
+.c-cidade .bairro, .c-obra .s { font-size: 13.5px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.c-obra .t { font-weight: 600; line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
+.c-obra .avisos { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 2px; }
+.c-obra .avisos > * { font-size: 12px; padding: 2px 8px; border-radius: 6px; }
+.c-tipo { justify-items: start; }
+.c-tipo .tipo { font-size: 13px; padding: 4px 10px 4px 8px; gap: 6px; white-space: nowrap; }
+.c-tipo .tipo .ico { width: 15px; height: 15px; }
+.c-area { text-align: right; }
+.c-area b { font-family: var(--font-display); font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1; color: var(--tinta); }
+.c-area small { color: var(--muted); font-size: 12px; }
+.c-fase { font-size: 14px; }
+.barra { display: block; height: 6px; border-radius: 3px; background: var(--line); overflow: hidden; margin-top: 4px; }
+.barra i { display: block; height: 100%; background: var(--marca-texto); border-radius: 3px; }
+.barra.passou i { background: var(--warn); }
+.c-agora { display: flex !important; flex-wrap: wrap; gap: 4px; align-content: center; }
+.mini { --c: var(--marca-texto); font-size: 12.5px; font-weight: 600; padding: 2px 8px; border-radius: 999px; border: 1.5px solid var(--c); color: var(--c); background: var(--surface); white-space: nowrap; }
+.fraco { font-size: 13px; color: var(--muted); }
+.c-vend { font-size: 14px; }
+.c-vend select { min-height: 40px; padding: 6px 10px; }
+.c-vend .quem { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
+
+/* telas menores que ~1100px (tablet em pé, celular): a linha vira um bloco de 3–4 faixas */
+@media (max-width: 1099px) {
+  .cab-lista { display: none; }
+  .linha-obra {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas: "cidade area" "obra obra" "tipo fase" "agora vend";
+    gap: 8px 16px; padding: 14px 16px;
+  }
+  .c-cidade { grid-area: cidade; } .c-area { grid-area: area; } .c-obra { grid-area: obra; } .c-tipo { grid-area: tipo; }
+  .c-fase { grid-area: fase; min-width: 150px; } .c-agora { grid-area: agora; } .c-vend { grid-area: vend; justify-items: end; }
+}
+@media (max-width: 560px) {
+  .linha-obra { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "cidade area" "obra obra" "tipo tipo" "fase fase" "agora agora" "vend vend"; }
+  .c-vend { justify-items: stretch; }
+}

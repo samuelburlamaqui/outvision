@@ -22,7 +22,15 @@
     "Residencial unifamiliar": "casa", "Conjunto habitacional popular": "conjunto", "Casa popular": "casa", "Edifício de Garagens": "garagem" };
   const COLS = "cno,nome,responsavel,cnpj,qualificacao,situacao,data_inicio,data_registro,municipio,bairro,tipo_logradouro," +
     "logradouro,numero,complemento,cep,area_principal,destinacao,destinacoes,categoria,vinculadas,prazo_meses,primeira_vez_em";
-  const ESCALA_MAX = 130, LOTE = 40, AREA_SUSPEITA = 300000, PAGINA = 1000;
+  const ESCALA_MAX = 130, LOTE = 40, LOTE_LISTA = 100, AREA_SUSPEITA = 300000, PAGINA = 1000;
+  // nomes curtos dos tipos, para a lista
+  const TIPO_CURTO = { "Residencial multifamiliar": "Prédio residencial", "Comercial salas e lojas": "Comercial",
+    "Galpão industrial": "Galpão", "Residencial unifamiliar": "Casa", "Conjunto habitacional popular": "Conjunto habitacional",
+    "Casa popular": "Casa popular", "Edifício de Garagens": "Garagem" };
+  const JANELA_CURTA = { "Apresentação / especificação": "Apresentação", "Cabos elétricos": "Cabos", "Pisos e revestimentos": "Pisos", "ASSA ABLOY": "ASSA" };
+  // forma de ver (lista ou fichas) fica lembrada neste aparelho
+  const lerModo = () => { try { return localStorage.getItem("radar-modo") || "lista"; } catch (e) { return "lista"; } };
+  const gravarModo = (m) => { try { localStorage.setItem("radar-modo", m); } catch (e) { /* sem armazenamento: só nesta sessão */ } };
 
   // ------------------------------------------------------------ utilidades
   const nf = new Intl.NumberFormat("pt-BR");
@@ -79,7 +87,7 @@
   // ------------------------------------------------------------ estado
   const E = {
     sb: null, eu: null, perfis: [], obras: new Map(), enc: [], acomp: new Map(), notas: new Map(),
-    vista: "", filtros: {}, lista: [], mostradas: 0, baseNova: null,
+    vista: "", filtros: {}, lista: [], mostradas: 0, baseNova: null, modo: lerModo(),
   };
   const ehAdmin = () => E.eu && E.eu.papel === "admin";
   const nomeDe = (id) => { const p = E.perfis.find((x) => x.id === id); return p ? p.nome || p.email : "—"; };
@@ -274,8 +282,8 @@
         ${vendedores.map((p) => `<option value="${esc(p.id)}" ${f.enc === p.id ? "selected" : ""}>Com ${esc(p.nome || p.email)}</option>`).join("")}
       </select></div>` : "";
     const ordens = E.vista === "todas"
-      ? [["prioridade", "Momento de contato"], ["area", "Maior área"], ["inicio", "Início mais recente"], ["registro", "Cadastro mais recente"], ["entrada", "Entrou na base mais recente"]]
-      : [["proxima", "Próxima ação"], ["prioridade", "Momento de contato"], ["area", "Maior área"], ["atualizado", "Movimentada mais recente"]];
+      ? [["prioridade", "Momento de contato"], ["cidade", "Cidade (A–Z)"], ["area", "Maior área"], ["inicio", "Início mais recente"], ["registro", "Cadastro mais recente"], ["entrada", "Entrou na base mais recente"]]
+      : [["proxima", "Próxima ação"], ["prioridade", "Momento de contato"], ["cidade", "Cidade (A–Z)"], ["area", "Maior área"], ["atualizado", "Movimentada mais recente"]];
     c.innerHTML = `
       <section class="painel" aria-label="Filtros">
         <div class="linha">
@@ -287,8 +295,14 @@
         </div>
         <div class="chips" id="chips" role="group" aria-label="${E.vista === "minhas" ? "Andamento" : "Momento da obra"}"></div>
       </section>
-      <div class="resumo"><span><strong id="qtd">0</strong> <span id="qtd-rot">obras</span></span><span>Fase calculada para hoje, ${HOJE.toLocaleDateString("pt-BR")}</span></div>
-      <div class="grade" id="grade"></div>
+      <div class="resumo">
+        <span><strong id="qtd">0</strong> <span id="qtd-rot">obras</span> <small class="hoje-rot">· fase calculada para hoje, ${HOJE.toLocaleDateString("pt-BR")}</small></span>
+        <div class="modos" role="group" aria-label="Forma de ver as obras">
+          <button type="button" data-modo="lista" aria-pressed="${E.modo === "lista"}">${ico("lista")}Lista</button>
+          <button type="button" data-modo="fichas" aria-pressed="${E.modo === "fichas"}">${ico("fichas")}Fichas</button>
+        </div>
+      </div>
+      <div class="${E.modo === "lista" ? "lista" : "grade"}" id="grade"></div>
       <button class="btn mais" id="mais" type="button" hidden>Mostrar mais</button>`;
     aplicar();
   }
@@ -340,6 +354,7 @@
     inicio: (a, b) => (b.data_inicio || "").localeCompare(a.data_inicio || ""),
     registro: (a, b) => (b.data_registro || "").localeCompare(a.data_registro || ""),
     entrada: (a, b) => (b.primeira_vez_em || "").localeCompare(a.primeira_vez_em || ""),
+    cidade: (a, b) => (a.municipio || "").localeCompare(b.municipio || "", "pt-BR") || prioridade(a, b),
     proxima: (a, b) => {
       const pa = (acompDe(a.cno, E.eu.id) || {}).proxima_acao || "9999", pb = (acompDe(b.cno, E.eu.id) || {}).proxima_acao || "9999";
       return pa.localeCompare(pb) || prioridade(a, b);
@@ -347,12 +362,14 @@
     atualizado: (a, b) => ((acompDe(b.cno, E.eu.id) || {}).atualizado_em || "").localeCompare((acompDe(a.cno, E.eu.id) || {}).atualizado_em || ""),
   };
   function desenharMais() {
-    const lote = E.lista.slice(E.mostradas, E.mostradas + LOTE);
-    $("grade").insertAdjacentHTML("beforeend", lote.map(ficha).join(""));
+    const emLista = E.modo === "lista", tam = emLista ? LOTE_LISTA : LOTE;
+    const lote = E.lista.slice(E.mostradas, E.mostradas + tam);
+    if (emLista && E.mostradas === 0 && lote.length) $("grade").insertAdjacentHTML("beforeend", cabecalhoLista());
+    $("grade").insertAdjacentHTML("beforeend", lote.map(emLista ? linha : ficha).join(""));
     E.mostradas += lote.length;
     const falta = E.lista.length - E.mostradas;
     $("mais").hidden = falta <= 0;
-    $("mais").textContent = `Mostrar mais ${nf.format(Math.min(LOTE, falta))} de ${nf.format(falta)}`;
+    $("mais").textContent = `Mostrar mais ${nf.format(Math.min(tam, falta))} de ${nf.format(falta)}`;
   }
 
   // ------------------------------------------------------------ ficha da obra
@@ -422,10 +439,56 @@
       </div></article>`;
   }
   function atualizarFicha(cno) {
-    const el = document.querySelector(`.ficha[data-cno="${CSS.escape(cno)}"]`);
+    const el = document.querySelector(`#grade [data-cno="${CSS.escape(cno)}"]`);
     const o = E.obras.get(cno);
-    if (el && o) el.outerHTML = ficha(o);
+    if (el && o) el.outerHTML = el.classList.contains("linha-obra") ? linha(o) : ficha(o);
     renderAbas();
+  }
+
+  // ------------------------------------------------------------ lista compacta (uma linha por obra)
+  function cabecalhoLista() {
+    const f = E.filtros[E.vista];
+    const col = (rot, ordem) => ordem
+      ? `<button type="button" data-ordenar="${ordem}" aria-sort="${f.ordem === ordem ? "descending" : "none"}">${rot}${f.ordem === ordem ? " ▾" : ""}</button>`
+      : `<span>${rot}</span>`;
+    return `<div class="cab-lista" aria-hidden="true">
+      ${col("Cidade", "cidade")}${col("Obra", "")}${col("Tipo", "")}${col("Área", "area")}${col("Fase", "prioridade")}${col("Agora", "")}
+      ${E.vista === "todas" ? col("Vendedor", "") : col("Andamento", "proxima")}</div>`;
+  }
+  function linha(o) {
+    const barra = o.pct == null ? "" : `<span class="barra${o.passou ? " passou" : ""}"><i style="width:${Math.min(o.pct, 100).toFixed(0)}%"></i></span>`;
+    const agora = o.janelas.length
+      ? o.janelas.map((j) => `<span class="mini" style="--c:${j.cor}">${esc(JANELA_CURTA[j.nome])}</span>`).join("")
+      : o.passou ? `<span class="fraco">passou do prazo</span>` : `<span class="fraco">—</span>`;
+    const avisos = [o.nova ? `<span class="novo">Nova</span>` : "", !o.cnpj ? `<span class="alerta">pessoa física</span>` : "",
+      o.susp ? `<span class="alerta">área suspeita</span>` : ""].join("");
+    let vend;
+    if (E.vista === "todas") {
+      const encs = encDe(o.cno);
+      if (encs.length) {
+        vend = encs.map((e) => { const st = (acompDe(o.cno, e.vendedor_id) || {}).status || "nova";
+          return `<span class="quem">${esc(nomeDe(e.vendedor_id))} <span class="status" data-s="${st}">${esc(STATUS_NOME[st])}</span></span>`; }).join("");
+      } else {
+        const opcoes = E.perfis.filter((p) => p.ativo);
+        vend = `<select data-encaminhar="${esc(o.cno)}" aria-label="Encaminhar obra"><option value="">Encaminhar…</option>${opcoes.map((p) => `<option value="${esc(p.id)}">${esc(p.nome || p.email)}</option>`).join("")}</select>`;
+      }
+    } else {
+      const a = acompDe(o.cno, E.eu.id) || {}, st = a.status || "nova";
+      vend = `<select data-status-obra="${esc(o.cno)}" aria-label="Andamento">${STATUS.map(([k, r]) => `<option value="${k}" ${k === st ? "selected" : ""}>${r}</option>`).join("")}</select>
+        ${a.proxima_acao ? `<span class="fraco">próxima ação ${dataBR(a.proxima_acao)}</span>` : ""}`;
+    }
+    const n = E.notas.get(o.cno) || 0;
+    return `<div class="linha-obra" data-cno="${esc(o.cno)}" tabindex="0" role="button" aria-label="Abrir ${esc(o.tNome)}">
+      <div class="c-cidade"><span class="mun">${esc(o.municipio)}</span><span class="bairro">${esc(o.tBairro)}</span></div>
+      <div class="c-obra"><span class="t">${esc(o.tNome)}</span>
+        <span class="s">${o.responsavel && o.responsavel !== o.nome ? esc(o.tResp) + " · " : ""}${esc(o.cnpjF || QUALIF[o.qualificacao] || "")}${n ? ` · ${n} anotaç${n === 1 ? "ão" : "ões"}` : ""}</span>
+        ${avisos ? `<span class="avisos">${avisos}</span>` : ""}</div>
+      <div class="c-tipo"><span class="tipo">${ico(ICONE[o.destinacao] || "predio")}${esc(TIPO_CURTO[o.destinacao] || o.destinacao || "—")}</span>${o.categoria && o.categoria !== "Obra Nova" ? `<span class="fraco">${esc(o.categoria)}</span>` : ""}</div>
+      <div class="c-area"><b>${o.area ? nf.format(Math.round(o.area)) : "–"}</b><small>m²</small></div>
+      <div class="c-fase"><span><b>${esc(o.fase)}</b>${o.pct == null ? "" : ` <span class="fraco">${nf.format(Math.round(o.pct))}%</span>`}</span>${barra}</div>
+      <div class="c-agora">${agora}</div>
+      <div class="c-vend">${vend}</div>
+    </div>`;
   }
 
   // ------------------------------------------------------------ ações
@@ -465,6 +528,12 @@
   }
 
   // ------------------------------------------------------------ painel de detalhes e anotações
+  function controleEncaminhar(o) {
+    const encs = encDe(o.cno), ja = new Set(encs.map((e) => e.vendedor_id));
+    const tirar = encs.map((e) => `<button class="btn discreto" type="button" data-remover="${esc(o.cno)}" data-vendedor="${esc(e.vendedor_id)}">Tirar de ${esc(nomeDe(e.vendedor_id))}</button>`).join("");
+    const opcoes = E.perfis.filter((p) => p.ativo && !ja.has(p.id));
+    return `<div class="linha">${opcoes.length ? `<select data-encaminhar="${esc(o.cno)}" aria-label="Encaminhar obra"><option value="">Encaminhar para…</option>${opcoes.map((p) => `<option value="${esc(p.id)}">${esc(p.nome || p.email)}</option>`).join("")}</select>` : ""}${tirar}</div>`;
+  }
   async function abrirDetalhe(cno) {
     const o = E.obras.get(cno);
     if (!o) return;
@@ -482,7 +551,7 @@
       <div class="conteudo">
         ${h.tipos}${h.resp}${h.local}${blocoTempo(o)}
         ${minha(cno) ? `<section><h4>Meu andamento</h4>${(E.vistaDialog = true, seletorStatus(o))}</section>` : ""}
-        <section><h4>Andamento da equipe</h4><div class="atribuidos">${andamento}</div></section>
+        <section><h4>Andamento da equipe</h4><div class="atribuidos">${andamento}</div>${ehAdmin() ? controleEncaminhar(o) : ""}</section>
         ${o.tVinc ? `<section><h4>Empresas ligadas à obra</h4><p style="margin:0">${esc(o.tVinc)}</p></section>` : ""}
         <section><h4>Anotações</h4>
           <form id="form-nota" class="notas">
@@ -597,6 +666,24 @@
     const rem = t.closest("[data-remover]"); if (rem) return remover(rem.dataset.remover, rem.dataset.vendedor);
     const cop = t.closest("[data-copiar]"); if (cop) return copiar(cop);
     if (t.id === "mais") return desenharMais();
+    const modo = t.closest("[data-modo]");
+    if (modo) { E.modo = modo.dataset.modo; gravarModo(E.modo); return renderVista(); }
+    const ord = t.closest("[data-ordenar]");
+    if (ord) { E.filtros[E.vista].ordem = ord.dataset.ordenar; const s = $("f-ordem"); if (s) s.value = ord.dataset.ordenar; return aplicar(); }
+    const lin = t.closest(".linha-obra");
+    if (lin && !t.closest("select, button, a, input, label")) return abrirDetalhe(lin.dataset.cno);
+  });
+  conteudo.addEventListener("keydown", (ev) => {
+    if ((ev.key === "Enter" || ev.key === " ") && ev.target.classList && ev.target.classList.contains("linha-obra")) { ev.preventDefault(); abrirDetalhe(ev.target.dataset.cno); }
+  });
+  // encaminhar e tirar também pelo painel de detalhes
+  $("detalhe").addEventListener("change", async (ev) => {
+    const t = ev.target;
+    if (t.dataset.encaminhar && t.value) { await encaminhar(t.dataset.encaminhar, t.value); abrirDetalhe(t.dataset.encaminhar); }
+  });
+  $("detalhe").addEventListener("click", async (ev) => {
+    const r = ev.target.closest("[data-remover]");
+    if (r) { await remover(r.dataset.remover, r.dataset.vendedor); abrirDetalhe(r.dataset.remover); }
   });
   // andamento também pode ser alterado dentro do painel de detalhes
   $("detalhe").addEventListener("change", (ev) => {
