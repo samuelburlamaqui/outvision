@@ -1,0 +1,8 @@
+{
+  "version": 3,
+  "sources": ["../worker/index.js"],
+  "sourceRoot": "out",
+  "sourcesContent": ["// Atende o que n\u00E3o \u00E9 arquivo est\u00E1tico:\n// - /config.js: entrega as chaves P\u00DABLICAS do Supabase, lidas das vari\u00E1veis do Worker\n//   (Settings > Variables and Secrets: SUPABASE_URL e SUPABASE_ANON_KEY);\n// - qualquer outro endere\u00E7o: devolve a p\u00E1gina inicial do site.\nexport default {\n  async fetch(request, env) {\n    const url = new URL(request.url);\n    if (url.pathname === \"/config.js\") {\n      const cfg = env.SUPABASE_URL && env.SUPABASE_ANON_KEY\n        ? { supabaseUrl: String(env.SUPABASE_URL).trim().replace(/\\/+$/, \"\"), supabaseKey: String(env.SUPABASE_ANON_KEY).trim() }\n        : null;\n      return new Response(`window.RADAR_CONFIG = ${JSON.stringify(cfg)};\\n`, {\n        headers: { \"content-type\": \"application/javascript; charset=utf-8\", \"cache-control\": \"no-store\" },\n      });\n    }\n    return env.ASSETS.fetch(new Request(new URL(\"/\", url), request));\n  },\n};\n"],
+  "mappings": ";AAIA,IAAO,gBAAQ;AAAA,EACb,MAAM,MAAM,SAAS,KAAK;AACxB,UAAM,MAAM,IAAI,IAAI,QAAQ,GAAG;AAC/B,QAAI,IAAI,aAAa,cAAc;AACjC,YAAM,MAAM,IAAI,gBAAgB,IAAI,oBAChC,EAAE,aAAa,OAAO,IAAI,YAAY,EAAE,KAAK,EAAE,QAAQ,QAAQ,EAAE,GAAG,aAAa,OAAO,IAAI,iBAAiB,EAAE,KAAK,EAAE,IACtH;AACJ,aAAO,IAAI,SAAS,yBAAyB,KAAK,UAAU,GAAG,CAAC;AAAA,GAAO;AAAA,QACrE,SAAS,EAAE,gBAAgB,yCAAyC,iBAAiB,WAAW;AAAA,MAClG,CAAC;AAAA,IACH;AACA,WAAO,IAAI,OAAO,MAAM,IAAI,QAAQ,IAAI,IAAI,KAAK,GAAG,GAAG,OAAO,CAAC;AAAA,EACjE;AACF;",
+  "names": []
+}

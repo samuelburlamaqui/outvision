@@ -1,0 +1,11 @@
+// Configuração do site na Cloudflare (Worker com arquivos estáticos).
+// A Cloudflare roda "npx wrangler deploy" a cada envio para o GitHub.
+{
+  "name": "radar-obras",
+  "main": "worker/index.js",
+  "compatibility_date": "2025-09-01",
+  // arquivos do site (HTML, ícone...) servidos direto
+  "assets": { "directory": "./site", "binding": "ASSETS" },
+  // mantém as variáveis criadas no painel (SUPABASE_URL, SUPABASE_ANON_KEY) a cada publicação
+  "keep_vars": true
+}

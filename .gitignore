@@ -8,5 +8,5 @@ dados_brutos/
 # dados de obras (nomes, endereços): ficam fora do repositório público
 app/obras.json
 
-# gerado no build da Cloudflare
+# não versionar: as chaves vêm do Worker
 site/config.js
