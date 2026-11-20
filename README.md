@@ -18,7 +18,10 @@ quem visitar e ligar.
 | Download automático dos arquivos da Receita | [`pipeline/baixar_receita.py`](pipeline/baixar_receita.py) |
 | Análise de estrutura (colunas, códigos, datas, volumes) | [`pipeline/explorar_cno.py`](pipeline/explorar_cno.py) |
 | Execução na nuvem (GitHub Actions) | [`.github/workflows/explorar-cno.yml`](.github/workflows/explorar-cno.yml) |
-| **Resultado da análise** | [`exploracao/RELATORIO_CNO.md`](exploracao/RELATORIO_CNO.md) |
+| **Resumo: como o dado funciona** | [`exploracao/ENTENDENDO_O_CNO.md`](exploracao/ENTENDENDO_O_CNO.md) |
+| Análise comercial (Brasil) | [`exploracao/PROSPECCAO_BRASIL.md`](exploracao/PROSPECCAO_BRASIL.md) |
+| Perfil técnico de cada coluna | [`exploracao/RELATORIO_CNO.md`](exploracao/RELATORIO_CNO.md) |
+| Análise com olhar de prospecção | [`pipeline/analisar_prospeccao.py`](pipeline/analisar_prospeccao.py) |
 | Dicionário de dados (texto) | [`exploracao/dicionario/`](exploracao/dicionario/) |
 
 O Action roda sozinho a cada mudança no pipeline, ou manualmente em

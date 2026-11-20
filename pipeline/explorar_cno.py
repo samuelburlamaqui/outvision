@@ -180,7 +180,7 @@ def perfil_coluna(con, tabela: str, col: str, total: int) -> dict:
         "pct_preenchido": round(100 * (1 - (vazios or 0) / total), 2) if total else None,
         "tam_min": lmin,
         "tam_max": lmax,
-        "top": [{"valor": mascarar(v), "n": n, "pct": round(100 * n / total, 2) if total else None} for v, n in top],
+        "top": [{"valor": v if col.lower().startswith("total") else mascarar(v), "n": n, "pct": round(100 * n / total, 2) if total else None} for v, n in top],
     }
 
     # só digitos? (códigos, CNPJ, CEP...)
