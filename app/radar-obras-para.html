@@ -2,170 +2,206 @@
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@400;700&family=Barlow+Condensed:wght@600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <style>
-/* Layout: cabeçalho enxuto, barra de filtros, grade de fichas de obra (1/2/3 colunas) com a linha do tempo da obra em cada ficha. */
+/* Layout: marca no topo, painel de filtros, grade de fichas (1/2/3 colunas). Cada ficha abre com a faixa da cidade. */
 :root {
-  --bg: #f4f3f6;
+  --bg: #f4f6f0;
   --surface: #ffffff;
-  --surface-2: #ecebef;
-  --fg: #1c1a20;
-  --muted: #66616e;
-  --line: #dedbe3;
-  --accent: #6b2d7e;      /* açaí */
-  --accent-fg: #ffffff;
-  --accent-soft: #f1e8f4;
-  --cabos: #b45f22;       /* cobre */
-  --pisos: #18806f;       /* porcelanato esverdeado */
-  --assa: #2d5c9c;        /* aço */
+  --surface-2: #edf1e6;
+  --fg: #1d2418;
+  --muted: #5d6656;
+  --line: #dbe1d2;
+  --marca: #93c572;          /* pistache */
+  --marca-texto: #3f6b17;    /* pistache escuro, para texto e links */
+  --marca-suave: #e9f3de;
+  --tinta: #1e2a14;          /* verde-oliva quase preto */
+  --etiqueta-bg: #1e2a14;
+  --etiqueta-fg: #d4ebbd;
+  --cabos: #b45f22;          /* cobre */
+  --pisos: #8a3f7e;          /* revestimento */
+  --assa: #2d5c9c;           /* aço */
   --warn: #9a5400;
   --warn-soft: #fbefdc;
+  --font-marca: "Sora", "Inter", system-ui, sans-serif;
   --font-display: "Barlow Condensed", "Arial Narrow", system-ui, sans-serif;
   --font-body: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
-  --radius: 10px;
+  --radius: 12px;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --bg: #131116; --surface: #1c1a20; --surface-2: #26232b; --fg: #eeebf2; --muted: #a29cab; --line: #322e38;
-    --accent: #c992db; --accent-fg: #1c1a20; --accent-soft: #2e2236;
-    --cabos: #e48a4b; --pisos: #4cc3ad; --assa: #7fa8e8; --warn: #f0b35a; --warn-soft: #3a2d18;
+    --bg: #121510; --surface: #1a1e17; --surface-2: #232920; --fg: #ebefe5; --muted: #a3ac98; --line: #2f3629;
+    --marca: #a6d483; --marca-texto: #b5dc93; --marca-suave: #26301d; --tinta: #e9f3de;
+    --etiqueta-bg: #a6d483; --etiqueta-fg: #172010;
+    --cabos: #e48a4b; --pisos: #d38bc7; --assa: #7fa8e8; --warn: #f0b35a; --warn-soft: #3a2d18;
     color-scheme: dark;
   }
 }
 :root[data-theme="dark"] {
-  --bg: #131116; --surface: #1c1a20; --surface-2: #26232b; --fg: #eeebf2; --muted: #a29cab; --line: #322e38;
-  --accent: #c992db; --accent-fg: #1c1a20; --accent-soft: #2e2236;
-  --cabos: #e48a4b; --pisos: #4cc3ad; --assa: #7fa8e8; --warn: #f0b35a; --warn-soft: #3a2d18;
+  --bg: #121510; --surface: #1a1e17; --surface-2: #232920; --fg: #ebefe5; --muted: #a3ac98; --line: #2f3629;
+  --marca: #a6d483; --marca-texto: #b5dc93; --marca-suave: #26301d; --tinta: #e9f3de;
+  --etiqueta-bg: #a6d483; --etiqueta-fg: #172010;
+  --cabos: #e48a4b; --pisos: #d38bc7; --assa: #7fa8e8; --warn: #f0b35a; --warn-soft: #3a2d18;
   color-scheme: dark;
 }
 
 * { box-sizing: border-box; }
 body {
-  background: var(--bg); color: var(--fg); font-family: var(--font-body); font-size: 15px; line-height: 1.45;
+  background: var(--bg); color: var(--fg); font-family: var(--font-body); font-size: 16px; line-height: 1.5;
   padding-left: max(16px, env(safe-area-inset-left, 0px));
   padding-right: max(16px, env(safe-area-inset-right, 0px));
-  padding-block: 20px 48px;
+  padding-block: 20px 56px;
 }
-.wrap { max-width: 1280px; margin: 0 auto; display: grid; gap: 18px; }
+.wrap { max-width: 1280px; margin: 0 auto; display: grid; gap: 20px; }
 h1, h2, h3 { margin: 0; text-wrap: balance; }
-a { color: var(--accent); }
-:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-.num { font-variant-numeric: tabular-nums; }
-.mono { font-family: var(--font-mono); font-size: 0.86em; }
+a { color: var(--marca-texto); }
+:focus-visible { outline: 2px solid var(--marca-texto); outline-offset: 2px; }
+.mono { font-family: var(--font-mono); font-size: 0.88em; }
+.ico { width: 18px; height: 18px; flex: none; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 
-/* Cabeçalho */
-header { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 8px 24px; }
-header h1 { font-family: var(--font-display); font-weight: 700; font-size: clamp(30px, 5vw, 42px); letter-spacing: 0.01em; line-height: 1; }
-header h1 span { color: var(--accent); }
-.fonte { color: var(--muted); font-size: 13px; max-width: 62ch; }
+/* Marca */
+header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 24px; }
+.marca { display: flex; align-items: center; gap: 12px; color: var(--tinta); text-decoration: none; }
+.marca svg { width: 44px; height: 44px; flex: none; }
+.marca .nome { font-family: var(--font-marca); font-size: clamp(24px, 4vw, 30px); letter-spacing: -0.01em; line-height: 1; }
+.marca .nome b { font-weight: 700; }
+.marca .nome span { font-weight: 400; }
+.regiao { font-family: var(--font-marca); font-weight: 700; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--etiqueta-fg); background: var(--etiqueta-bg); border-radius: 999px; padding: 5px 12px; }
+.fonte { color: var(--muted); font-size: 14px; max-width: 70ch; margin: 0; }
 
 /* Painel de filtros */
-.painel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px; display: grid; gap: 12px; }
-.linha { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.painel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; display: grid; gap: 14px; }
+.linha { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
 .campo { display: grid; gap: 4px; flex: 1 1 180px; min-width: 0; }
-.campo label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); font-weight: 600; }
+.campo label { font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); font-weight: 600; }
 input[type="search"], select {
   font: inherit; color: var(--fg); background: var(--bg); border: 1px solid var(--line); border-radius: 8px;
-  padding: 10px 12px; min-height: 44px; width: 100%;
+  padding: 10px 12px; min-height: 46px; width: 100%;
 }
 .campo.busca { flex: 3 1 280px; }
-.toggle { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; font-size: 14px; cursor: pointer; user-select: none; }
-.toggle input { width: 20px; height: 20px; accent-color: var(--accent); }
+.toggle { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; font-size: 15px; cursor: pointer; user-select: none; }
+.toggle input { width: 20px; height: 20px; accent-color: var(--marca-texto); }
 
 .chips { display: flex; flex-wrap: wrap; gap: 8px; }
 .chip {
-  --c: var(--accent);
-  font: inherit; font-size: 14px; display: inline-flex; align-items: center; gap: 8px; min-height: 40px;
+  --c: var(--marca-texto);
+  font: inherit; font-size: 15px; display: inline-flex; align-items: center; gap: 8px; min-height: 42px;
   padding: 6px 14px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); color: var(--fg); cursor: pointer;
 }
 .chip .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--c); flex: none; }
 .chip b { font-variant-numeric: tabular-nums; font-weight: 600; }
 .chip[aria-pressed="true"] { background: var(--c); border-color: var(--c); color: var(--surface); }
 .chip[aria-pressed="true"] .dot { background: var(--surface); }
-.chip.todas { --c: var(--fg); }
+.chip.todas { --c: var(--tinta); }
 .chip.prazo { --c: var(--warn); }
 
-.resumo { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 8px; color: var(--muted); font-size: 14px; }
-.resumo strong { color: var(--fg); font-family: var(--font-display); font-size: 22px; font-weight: 700; }
-
-/* Legenda da linha do tempo */
-.legenda { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 12px; color: var(--muted); }
+.legenda { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 13px; color: var(--muted); }
 .legenda span { display: inline-flex; align-items: center; gap: 6px; }
 .legenda i { width: 18px; height: 6px; border-radius: 3px; background: var(--c); display: inline-block; }
 
+.resumo { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 8px; color: var(--muted); font-size: 15px; }
+.resumo strong { color: var(--fg); font-family: var(--font-display); font-size: 26px; font-weight: 700; font-variant-numeric: tabular-nums; }
+
 /* Fichas */
-.grade { display: grid; gap: 14px; grid-template-columns: 1fr; }
+.grade { display: grid; gap: 16px; grid-template-columns: 1fr; }
 @media (min-width: 760px) { .grade { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (min-width: 1180px) { .grade { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 
-.ficha { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; display: grid; gap: 12px; min-width: 0; align-content: start; }
-.ficha .topo { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
-.tags { display: flex; flex-wrap: wrap; gap: 6px; }
-.tag { font-size: 12px; padding: 3px 8px; border-radius: 6px; background: var(--surface-2); color: var(--muted); white-space: nowrap; }
-.tag.alerta { background: var(--warn-soft); color: var(--warn); }
-.area { text-align: right; flex: none; }
-.area b { display: block; font-family: var(--font-display); font-size: 26px; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; }
-.area small { color: var(--muted); font-size: 12px; }
-.ficha h3 { font-size: 16px; font-weight: 600; line-height: 1.3; overflow-wrap: anywhere; }
-.resp { font-size: 14px; color: var(--muted); display: grid; gap: 2px; min-width: 0; }
+.ficha { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; display: grid; align-content: start; min-width: 0; }
+
+/* faixa da cidade: o primeiro ponto de leitura de cada ficha */
+.cidade { display: flex; align-items: center; gap: 10px; padding: 12px 16px; background: var(--marca-suave); border-bottom: 1px solid var(--line); min-width: 0; }
+.cidade .ico { width: 20px; height: 20px; color: var(--marca-texto); }
+.cidade .lugar { display: grid; min-width: 0; flex: 1; }
+.cidade .mun { font-family: var(--font-display); font-weight: 700; font-size: 22px; line-height: 1.05; letter-spacing: 0.02em; text-transform: uppercase; color: var(--tinta); overflow-wrap: anywhere; }
+.cidade .bairro { font-size: 14px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cidade .area { text-align: right; flex: none; }
+.cidade .area b { display: block; font-family: var(--font-display); font-weight: 700; font-size: 24px; line-height: 1; font-variant-numeric: tabular-nums; color: var(--tinta); }
+.cidade .area small { color: var(--muted); font-size: 13px; }
+
+.corpo { padding: 16px; display: grid; gap: 14px; min-width: 0; }
+.tipos { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.tipo { display: inline-flex; align-items: center; gap: 7px; font-size: 14px; font-weight: 600; padding: 6px 12px 6px 10px; border-radius: 8px; background: var(--etiqueta-bg); color: var(--etiqueta-fg); }
+.tipo .ico { width: 17px; height: 17px; }
+.cat { font-size: 13px; font-weight: 500; padding: 5px 10px; border-radius: 8px; border: 1px solid var(--line); color: var(--muted); }
+.alerta { font-size: 13px; padding: 5px 10px; border-radius: 8px; background: var(--warn-soft); color: var(--warn); }
+
+.ficha h3 { font-size: 18px; font-weight: 600; line-height: 1.3; overflow-wrap: anywhere; }
+.resp { font-size: 15px; color: var(--muted); display: grid; gap: 4px; min-width: 0; }
 .resp .nome { color: var(--fg); overflow-wrap: anywhere; }
-.cnpj { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.cnpj { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .copiar {
-  font: inherit; font-size: 12px; color: var(--accent); background: none; border: 1px solid var(--line); border-radius: 6px;
-  padding: 4px 8px; min-height: 30px; cursor: pointer;
+  font: inherit; font-size: 13px; color: var(--marca-texto); background: none; border: 1px solid var(--line); border-radius: 6px;
+  padding: 4px 10px; min-height: 32px; cursor: pointer;
 }
-.local { font-size: 14px; display: grid; gap: 2px; }
-.local .end { color: var(--muted); overflow-wrap: anywhere; }
-.mapa { display: inline-flex; align-items: center; gap: 4px; font-weight: 500; font-size: 14px; min-height: 36px; text-decoration: none; }
+.local { font-size: 15px; display: grid; gap: 4px; color: var(--muted); }
+.local .end { overflow-wrap: anywhere; }
+.mapa { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; font-size: 15px; min-height: 40px; text-decoration: none; }
 .mapa:hover { text-decoration: underline; }
 
 /* Linha do tempo da obra: 0% = início, 100% = fim previsto, até 130% */
-.tempo { display: grid; gap: 6px; }
-.tempo .cab { display: flex; justify-content: space-between; gap: 8px; font-size: 13px; }
+.tempo { display: grid; gap: 8px; padding: 12px; background: var(--surface-2); border-radius: 10px; }
+.tempo .cab { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 4px 8px; font-size: 14px; }
 .tempo .fase { font-weight: 600; }
 .tempo .meses { color: var(--muted); font-variant-numeric: tabular-nums; }
-.trilho { position: relative; height: 34px; }
-.raia { position: absolute; left: 0; right: 0; height: 5px; background: var(--surface-2); border-radius: 3px; }
-.raia i { position: absolute; top: 0; bottom: 0; border-radius: 3px; background: var(--c); opacity: 0.35; }
+.trilho { position: relative; height: 38px; }
+.raia { position: absolute; left: 0; right: 0; height: 6px; background: var(--line); border-radius: 3px; }
+.raia i { position: absolute; top: 0; bottom: 0; border-radius: 3px; background: var(--c); opacity: 0.3; }
 .raia i.aberta { opacity: 1; }
 .alem { position: absolute; top: 0; bottom: 0; right: 0; background: repeating-linear-gradient(135deg, transparent 0 4px, var(--line) 4px 6px); border-left: 1px dashed var(--muted); }
 .hoje { position: absolute; top: -3px; bottom: -3px; width: 2px; margin-left: -1px; background: var(--fg); border-radius: 1px; }
 .hoje::after { content: ""; position: absolute; top: -4px; left: -4px; width: 10px; height: 10px; border-radius: 50%; background: var(--fg); }
-.escala { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); position: relative; height: 14px; }
+.escala { font-size: 12px; color: var(--muted); position: relative; height: 16px; }
 .escala span { position: absolute; transform: translateX(-50%); white-space: nowrap; }
 .escala span:first-child { transform: none; }
-.agora { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 13px; }
+.agora { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 14px; }
 .agora .rot { color: var(--muted); }
-.prod { --c: var(--accent); display: inline-flex; align-items: center; gap: 6px; padding: 3px 9px; border-radius: 999px; border: 1px solid var(--c); color: var(--c); font-weight: 500; }
+.prod { --c: var(--marca-texto); display: inline-flex; align-items: center; padding: 3px 10px; border-radius: 999px; border: 1.5px solid var(--c); color: var(--c); font-weight: 600; background: var(--surface); }
 
-.rodape { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12px; color: var(--muted); border-top: 1px solid var(--line); padding-top: 10px; }
-details.vinc { font-size: 13px; }
-details.vinc summary { cursor: pointer; color: var(--muted); min-height: 28px; }
+.rodape { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 13px; color: var(--muted); border-top: 1px solid var(--line); padding-top: 12px; }
+details.vinc { font-size: 14px; }
+details.vinc summary { cursor: pointer; color: var(--muted); min-height: 32px; }
 details.vinc p { margin: 6px 0 0; overflow-wrap: anywhere; }
 
-.mais { justify-self: center; font: inherit; font-weight: 600; color: var(--accent-fg); background: var(--accent); border: 0; border-radius: 8px; padding: 12px 22px; min-height: 48px; cursor: pointer; }
-.vazio { text-align: center; color: var(--muted); padding: 32px 0; }
+.mais { justify-self: center; font: inherit; font-weight: 600; color: var(--etiqueta-fg); background: var(--etiqueta-bg); border: 0; border-radius: 8px; padding: 12px 24px; min-height: 48px; cursor: pointer; }
+.vazio { text-align: center; color: var(--muted); padding: 32px 0; grid-column: 1 / -1; }
 
 /* Seções de apoio */
 details.apoio { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px; }
-details.apoio summary { cursor: pointer; font-weight: 600; min-height: 28px; }
-details.apoio .corpo { margin-top: 12px; display: grid; gap: 10px; font-size: 14px; max-width: 75ch; }
-details.apoio .corpo p { margin: 0; }
+details.apoio summary { cursor: pointer; font-weight: 600; min-height: 30px; }
+details.apoio .texto { margin-top: 12px; display: grid; gap: 10px; font-size: 15px; max-width: 75ch; }
+details.apoio .texto p { margin: 0; }
 .tabela { overflow-x: auto; max-width: 100%; }
-table { border-collapse: collapse; font-size: 13px; min-width: 640px; width: 100%; }
-th, td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
-th { font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); }
+table { border-collapse: collapse; font-size: 14px; min-width: 640px; width: 100%; }
+th, td { text-align: left; padding: 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); }
 td.n { text-align: right; font-variant-numeric: tabular-nums; }
 
 @media (prefers-reduced-motion: no-preference) { .chip, .copiar, .mais { transition: background-color 120ms, color 120ms; } }
 </style>
 
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-pin" viewBox="0 0 24 24"><path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></symbol>
+  <symbol id="i-predio" viewBox="0 0 24 24"><path d="M5 21V4h14v17M3 21h18M9 8h2M13 8h2M9 12h2M13 12h2M9 16h2M13 16h2"/></symbol>
+  <symbol id="i-loja" viewBox="0 0 24 24"><path d="M4 4h16l1 5H3l1-5zM3 9c0 1.7 1.3 3 3 3s3-1.3 3-3c0 1.7 1.3 3 3 3s3-1.3 3-3c0 1.7 1.3 3 3 3s3-1.3 3-3M5 12v9h14v-9M10 21v-5h4v5"/></symbol>
+  <symbol id="i-galpao" viewBox="0 0 24 24"><path d="M3 21V10l9-6 9 6v11M2 21h20M7 21v-7h10v7M7 17.5h10"/></symbol>
+  <symbol id="i-casa" viewBox="0 0 24 24"><path d="M3 11l9-7 9 7M5 9.5V21h14V9.5M10 21v-6h4v6"/></symbol>
+  <symbol id="i-conjunto" viewBox="0 0 24 24"><path d="M1.5 12L7 7.5l5.5 4.5M3 11v9.5h8V11M11.5 12L17 7.5l5.5 4.5M13 11v9.5h8V11"/></symbol>
+  <symbol id="i-garagem" viewBox="0 0 24 24"><path d="M4 21V5a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v16M9.5 17V8h3a2.5 2.5 0 0 1 0 5h-3"/></symbol>
+  <symbol id="i-mapa" viewBox="0 0 24 24"><path d="M9 4L3 6.5v13.5l6-2.5 6 2.5 6-2.5V4l-6 2.5L9 4zM9 4v13.5M15 6.5V20"/></symbol>
+</svg>
+
 <div class="wrap">
   <header>
-    <h1>Radar de Obras <span>Pará</span></h1>
-    <p class="fonte" id="fonte">Obras ativas no CNO (Receita Federal) com 800 m² ou mais, iniciadas a partir de 2023, sem obras de infraestrutura.</p>
+    <h1 class="marca" aria-label="Radar de Obras">
+      <svg viewBox="0 0 512 512" aria-hidden="true"><rect width="512" height="512" rx="116" fill="#93C572"/><path d="M 256 256 L 150.6 130.4 A 164.0 164.0 0 0 1 390.3 161.9 Z" fill="#1E2A14" fill-opacity="0.3"/><circle cx="256" cy="256" r="86" fill="none" stroke="#1E2A14" stroke-width="16"/><circle cx="256" cy="256" r="178" fill="none" stroke="#1E2A14" stroke-width="28"/><path d="M 256 256 L 390.3 161.9" stroke="#1E2A14" stroke-width="18" stroke-linecap="round"/><circle cx="256" cy="256" r="24" fill="#1E2A14"/><rect x="262.8" y="109.3" width="44" height="44" rx="9" fill="#1E2A14"/></svg>
+      <span class="nome"><b>radar</b> <span>de obras</span></span>
+    </h1>
+    <span class="regiao">Pará</span>
   </header>
+  <p class="fonte" id="fonte">Obras ativas no CNO (Receita Federal) com 800 m² ou mais, iniciadas a partir de 2023, sem obras de infraestrutura.</p>
 
   <section class="painel" aria-label="Filtros">
     <div class="linha">
@@ -198,18 +234,18 @@ td.n { text-align: right; font-variant-numeric: tabular-nums; }
     <div class="legenda" id="legenda"></div>
   </section>
 
-  <div class="resumo"><span><strong id="qtd" class="num">…</strong> <span id="qtd-rot">obras carregando</span></span><span id="hoje-rot"></span></div>
+  <div class="resumo"><span><strong id="qtd">…</strong> <span id="qtd-rot">obras carregando</span></span><span id="hoje-rot"></span></div>
 
   <div class="grade" id="grade"><p class="vazio">Carregando as obras…</p></div>
   <button class="mais" id="mais" type="button" hidden>Mostrar mais</button>
 
   <details class="apoio" id="como">
     <summary>Como a fase da obra é estimada</summary>
-    <div class="corpo" id="como-corpo"></div>
+    <div class="texto" id="como-texto"></div>
   </details>
   <details class="apoio" id="excl">
     <summary id="excl-tit">Obras retiradas como infraestrutura</summary>
-    <div class="corpo" style="max-width:none">
+    <div class="texto" style="max-width:none">
       <p>Retiradas pelo nome da obra (pavimentação, drenagem, praça, ponte…) ou por terem só atividades de infraestrutura no cadastro. Se alguma interessar, avise para ajustar a regra.</p>
       <div class="tabela"><table><thead><tr><th>Motivo</th><th>Obra</th><th>Responsável</th><th>Município</th><th>Área (m²)</th></tr></thead><tbody id="excl-corpo"></tbody></table></div>
     </div>
@@ -218,8 +254,10 @@ td.n { text-align: right; font-variant-numeric: tabular-nums; }
 
 <script>
 (function () {
-  const COR = { "Apresentação / especificação": "var(--accent)", "Cabos elétricos": "var(--cabos)", "Pisos e revestimentos": "var(--pisos)", "ASSA ABLOY": "var(--assa)" };
+  const COR = { "Apresentação / especificação": "var(--marca-texto)", "Cabos elétricos": "var(--cabos)", "Pisos e revestimentos": "var(--pisos)", "ASSA ABLOY": "var(--assa)" };
   const CURTO = { "Apresentação / especificação": "Apresentação", "Cabos elétricos": "Cabos", "Pisos e revestimentos": "Pisos e revestimentos", "ASSA ABLOY": "ASSA ABLOY" };
+  const ICONE = { "Residencial multifamiliar": "predio", "Comercial salas e lojas": "loja", "Galpão industrial": "galpao",
+    "Residencial unifamiliar": "casa", "Conjunto habitacional popular": "conjunto", "Casa popular": "casa", "Edifício de Garagens": "garagem" };
   const ESCALA_MAX = 130;   // a linha do tempo vai até 130% do prazo
   const LOTE = 40;
   const nf = new Intl.NumberFormat("pt-BR");
@@ -227,6 +265,24 @@ td.n { text-align: right; font-variant-numeric: tabular-nums; }
   const sem = (s) => (s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
   const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   const dataBR = (iso) => iso ? iso.slice(8, 10) + "/" + iso.slice(5, 7) + "/" + iso.slice(0, 4) : "–";
+  const ico = (nome) => `<svg class="ico" aria-hidden="true"><use href="#i-${nome}"/></svg>`;
+
+  // Texto do cadastro vem TODO EM MAIÚSCULAS; para ler o dia inteiro, vira "Título".
+  const SIGLAS = new Set("LTDA SA SPE EIRELI ME EPP CNPJ PA UBS EMEF EMEIF EMEI UFPA UFOPA UFRA IFPA SEDUC SESAU SESPA SEDOP SESAN CEP BR II III IV VI VII VIII IX XI XII XIII MRV DNIT CRAS CAPS UPA SENAI SESC SESI SEBRAE BB CEF INSS TRT TRE TJPA MPPA COHAB CDP FII PCB SS CT PAC FL CPH HU SAAE COSANPA CELPA EQUATORIAL".split(" "));
+  const MINUS = new Set("de da do das dos e em na no nas nos a o as os para com por ao à".split(" "));
+  function titulo(s) {
+    if (!s) return "";
+    if (/[a-zà-ÿ]/.test(s)) return s;  // já tem minúsculas: respeita como veio
+    return s.toLowerCase().split(/(\s+|-|\/|\(|\))/).map((w, i) => {
+      if (!w || /^(\s+|-|\/|\(|\))$/.test(w)) return w;
+      const up = w.toUpperCase(), limpo = up.replace(/[.,;:]/g, "");
+      if (SIGLAS.has(limpo)) return up;
+      if (i > 0 && MINUS.has(w)) return w;
+      if (/^\d/.test(w) || /^[a-z]\.?,?$/.test(w)) return up;
+      if (w.length <= 3 && !/[aeiouáéíóúâêôãõày]/.test(w)) return up;
+      return w.charAt(0).toUpperCase() + w.slice(1);
+    }).join("");
+  }
 
   let META, OBRAS = [], filtradas = [], mostradas = 0, filtroJanela = "";
   const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
@@ -246,6 +302,7 @@ td.n { text-align: right; font-variant-numeric: tabular-nums; }
     o.janelas = META.janelas.filter((j) => o.pct >= j.ini && o.pct < j.fim).map((j) => j.nome);
     o.passou = o.pct >= 115;
     o.busca = sem([o.obra, o.resp, o.cnpj, o.bairro, o.mun, o.end, o.vinc, o.cno, o.dests].join(" "));
+    o.tObra = titulo(o.obra); o.tResp = titulo(o.resp); o.tBairro = titulo(o.bairro); o.tEnd = titulo(o.end); o.tVinc = titulo(o.vinc);
   }
 
   function prioridade(a, b) {
@@ -263,7 +320,7 @@ td.n { text-align: right; font-variant-numeric: tabular-nums; }
   function montarFiltros(salvo) {
     const porMun = {}, porDest = {};
     OBRAS.forEach((o) => { porMun[o.mun] = (porMun[o.mun] || 0) + 1; porDest[o.dest] = (porDest[o.dest] || 0) + 1; });
-    Object.entries(porMun).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).forEach(([m, n]) => $("municipio").add(new Option(`${m} (${n})`, m)));
+    Object.entries(porMun).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).forEach(([m, n]) => $("municipio").add(new Option(`${titulo(m)} (${n})`, m)));
     Object.entries(porDest).sort((a, b) => b[1] - a[1]).forEach(([d, n]) => $("destinacao").add(new Option(`${d} (${n})`, d)));
     $("legenda").innerHTML = META.janelas.map((j) => `<span><i style="--c:${COR[j.nome]}"></i>${esc(CURTO[j.nome])}: ${j.ini}–${j.fim}% do prazo</span>`).join("") +
       `<span><i style="--c:var(--fg);width:3px;height:12px"></i>hoje</span>`;
@@ -278,7 +335,6 @@ td.n { text-align: right; font-variant-numeric: tabular-nums; }
   function aplicar() {
     const q = sem($("busca").value.trim()), m = $("municipio").value, d = $("destinacao").value, c = $("socnpj").checked;
     const base = OBRAS.filter((o) => (!q || o.busca.includes(q)) && (!m || o.mun === m) && (!d || o.dest === d) && (!c || o.cnpj));
-    // chips com contagem sobre o recorte atual
     const cont = { "": base.length, passou: base.filter((o) => o.passou).length };
     META.janelas.forEach((j) => { cont[j.nome] = base.filter((o) => o.janelas.includes(j.nome)).length; });
     const chips = [["", "Todas", "todas"], ...META.janelas.map((j) => [j.nome, CURTO[j.nome], ""]), ["passou", "Passou do prazo", "prazo"]];
@@ -300,32 +356,38 @@ td.n { text-align: right; font-variant-numeric: tabular-nums; }
   function trilho(o) {
     const pos = (p) => (Math.min(p, ESCALA_MAX) / ESCALA_MAX * 100).toFixed(2) + "%";
     const raias = META.janelas.map((j, i) =>
-      `<div class="raia" style="top:${i * 8}px"><i class="${o.janelas.includes(j.nome) ? "aberta" : ""}" style="--c:${COR[j.nome]};left:${pos(j.ini)};width:calc(${pos(j.fim)} - ${pos(j.ini)})"></i></div>`).join("");
+      `<div class="raia" style="top:${i * 9}px"><i class="${o.janelas.includes(j.nome) ? "aberta" : ""}" style="--c:${COR[j.nome]};left:${pos(j.ini)};width:calc(${pos(j.fim)} - ${pos(j.ini)})"></i></div>`).join("");
     return `<div class="trilho" aria-hidden="true">${raias}<div class="alem" style="left:${pos(100)}"></div><div class="hoje" style="left:${pos(o.pct)}"></div></div>
       <div class="escala" aria-hidden="true"><span style="left:0">início</span><span style="left:${pos(50)}">metade</span><span style="left:${pos(100)}">fim previsto</span></div>`;
   }
 
   function ficha(o) {
-    const tags = [`<span class="tag">${esc(o.dest || "–")}</span>`, `<span class="tag">${esc(o.cat || "")}</span>`];
-    if (o.susp) tags.push(`<span class="tag alerta">área provavelmente digitada errada</span>`);
-    if (!o.cnpj) tags.push(`<span class="tag alerta">pessoa física</span>`);
+    const alertas = [];
+    if (o.susp) alertas.push(`<span class="alerta">área provavelmente digitada errada</span>`);
+    if (!o.cnpj) alertas.push(`<span class="alerta">pessoa física</span>`);
     const agora = o.janelas.length
       ? `<span class="rot">Agora:</span>` + o.janelas.map((j) => `<span class="prod" style="--c:${COR[j]}">${esc(CURTO[j])}</span>`).join("")
       : o.passou ? `<span class="rot">Já passou do prazo estimado. Vale confirmar se a obra terminou.</span>` : `<span class="rot">Fora das janelas de produto</span>`;
-    const resp = o.resp && o.resp !== o.obra ? `<span class="nome">${esc(o.resp)}</span>` : "";
+    const resp = o.resp && o.resp !== o.obra ? `<span class="nome">${esc(o.tResp)}</span>` : "";
     const cnpj = o.cnpj ? `<span class="cnpj"><span class="mono">${esc(o.cnpj)}</span><button type="button" class="copiar" data-copiar="${esc(o.cnpj)}">Copiar CNPJ</button></span>` : "";
     return `<article class="ficha">
-      <div class="topo"><div class="tags">${tags.join("")}</div><div class="area"><b>${o.area ? nf.format(o.area) : "–"}</b><small>m²</small></div></div>
-      <div style="display:grid;gap:6px;min-width:0"><h3>${esc(o.obra)}</h3><div class="resp">${resp}${cnpj}<span>${esc(o.qualif || "")}</span></div></div>
-      <div class="local"><span><strong>${esc(o.mun)}</strong>${o.bairro ? " · " + esc(o.bairro) : ""}</span><span class="end">${esc(o.end)}${o.cep ? " · CEP " + esc(o.cep) : ""}</span>
-        <a class="mapa" href="${esc(o.mapa)}" target="_blank" rel="noopener">Abrir no mapa ↗</a></div>
-      <div class="tempo">
-        <div class="cab"><span class="fase">${esc(o.fase)}</span><span class="meses">${nf.format(Math.round(o.meses))} de ~${nf.format(Math.round(o.prazo))} meses · ${nf.format(Math.round(o.pct))}%</span></div>
-        ${trilho(o)}
-        <div class="agora">${agora}</div>
+      <div class="cidade">${ico("pin")}
+        <div class="lugar"><span class="mun">${esc(o.mun)}</span>${o.bairro ? `<span class="bairro">${esc(o.tBairro)}</span>` : ""}</div>
+        <div class="area"><b>${o.area ? nf.format(o.area) : "–"}</b><small>m²</small></div>
       </div>
-      ${o.vinc ? `<details class="vinc"><summary>Empresas ligadas à obra</summary><p>${esc(o.vinc)}</p></details>` : ""}
-      <div class="rodape"><span>Início ${dataBR(o.inicio)}</span><span>Cadastro ${dataBR(o.registro)}</span><span class="mono">CNO ${esc(o.cno)}</span></div>
+      <div class="corpo">
+        <div class="tipos"><span class="tipo">${ico(ICONE[o.dest] || "predio")}${esc(o.dest || "Tipo não informado")}</span>${o.cat ? `<span class="cat">${esc(o.cat)}</span>` : ""}${alertas.join("")}</div>
+        <div style="display:grid;gap:6px;min-width:0"><h3>${esc(o.tObra)}</h3><div class="resp">${resp}${cnpj}<span>${esc(o.qualif || "")}</span></div></div>
+        <div class="local"><span class="end">${esc(o.tEnd)}${o.cep ? " · CEP " + esc(o.cep) : ""}</span>
+          <a class="mapa" href="${esc(o.mapa)}" target="_blank" rel="noopener">${ico("mapa")}Abrir no mapa</a></div>
+        <div class="tempo">
+          <div class="cab"><span class="fase">${esc(o.fase)}</span><span class="meses">${nf.format(Math.round(o.meses))} de ~${nf.format(Math.round(o.prazo))} meses · ${nf.format(Math.round(o.pct))}%</span></div>
+          ${trilho(o)}
+          <div class="agora">${agora}</div>
+        </div>
+        ${o.vinc ? `<details class="vinc"><summary>Empresas ligadas à obra</summary><p>${esc(o.tVinc)}</p></details>` : ""}
+        <div class="rodape"><span>Início ${dataBR(o.inicio)}</span><span>Cadastro ${dataBR(o.registro)}</span><span class="mono">CNO ${esc(o.cno)}</span></div>
+      </div>
     </article>`;
   }
 
@@ -342,7 +404,7 @@ td.n { text-align: right; font-variant-numeric: tabular-nums; }
     const j = META.janelas.map((x) => `<li><b>${esc(x.nome)}</b>: de ${x.ini}% a ${x.fim}% do prazo</li>`).join("");
     let ant = 0;
     const f = META.fases.map((x) => { const t = x.ate < 10000 ? `${ant}% a ${x.ate}%` : `acima de ${ant}%`; ant = x.ate; return `<li>${esc(x.nome)}: ${t}</li>`; }).join("");
-    $("como-corpo").innerHTML = `
+    $("como-texto").innerHTML = `
       <p>O cadastro da Receita não diz em que fase a obra está. A estimativa usa a <b>data de início</b> e um <b>prazo típico</b> que depende do tipo e do tamanho da obra. Exemplo: galpão de 1.500 m² leva cerca de 6 meses, prédio residencial de 8.000 m² cerca de 28 meses. Reforma conta 60% desse prazo.</p>
       <p>% do prazo = meses desde o início ÷ prazo típico. A conta é refeita todo dia ao abrir a página.</p>
       <p><b>Janelas de cada produto</b></p><ul style="margin:0">${j}</ul>
@@ -353,7 +415,7 @@ td.n { text-align: right; font-variant-numeric: tabular-nums; }
   function excluidas(lista) {
     $("excl-tit").textContent = `${nf.format(lista.length)} obras retiradas como infraestrutura`;
     $("excl-corpo").innerHTML = lista.map((o) =>
-      `<tr><td>${esc(o.motivo)}</td><td>${esc(o.obra)}</td><td>${esc(o.resp)}</td><td>${esc(o.mun)}</td><td class="n">${o.area ? nf.format(o.area) : "–"}</td></tr>`).join("");
+      `<tr><td>${esc(o.motivo)}</td><td>${esc(titulo(o.obra))}</td><td>${esc(titulo(o.resp))}</td><td>${esc(titulo(o.mun))}</td><td class="n">${o.area ? nf.format(o.area) : "–"}</td></tr>`).join("");
   }
 
   document.addEventListener("click", (ev) => {
