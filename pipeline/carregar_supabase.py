@@ -85,7 +85,8 @@ def para_utf8(caminho: str, tmp: str) -> str:
     return destino
 
 
-def montar_obras(csvs: dict[str, str], uf: str, tmp: str) -> list[dict]:
+def montar_obras(csvs: dict[str, str], uf: str, tmp: str) -> tuple[list[dict], list[tuple], list[tuple]]:
+    """Devolve (obras, ligações obra↔empresa, empresas agrupadas pela raiz do CNPJ)."""
     con = duckdb.connect()
     con.execute("SET preserve_insertion_order=false")
     leitura = "delim=',', header=true, all_varchar=true, quote='\"', escape='\"', ignore_errors=true, null_padding=true"
@@ -124,6 +125,7 @@ def montar_obras(csvs: dict[str, str], uf: str, tmp: str) -> list[dict]:
         CREATE TABLE cnaes AS SELECT "CNO" AS cno, list(DISTINCT "CNAE" ORDER BY "CNAE") AS cnaes
         FROM {tabela('cno_cnaes')} WHERE "CNO" IN (SELECT "CNO" FROM obras_uf) GROUP BY 1
     """)
+    con.execute(f"""CREATE TABLE vinc_raw AS SELECT * FROM {tabela('cno_vinculos')} WHERE "CNO" IN (SELECT "CNO" FROM obras_uf)""")
     casos = " ".join(f"WHEN '{k}' THEN '{v}'" for k, v in QUALIF_VINCULO.items())
     con.execute(f"""
         CREATE TABLE vinc AS
@@ -131,9 +133,8 @@ def montar_obras(csvs: dict[str, str], uf: str, tmp: str) -> list[dict]:
                string_agg(coalesce(n.nome, 'CNPJ ' || v."NI do responsável") || ' (' ||
                           CASE v."Qualificação do contribuinte" {casos} ELSE v."Qualificação do contribuinte" END
                           || ')', '; ' ORDER BY coalesce(n.nome, v."NI do responsável"), v."Qualificação do contribuinte") AS vinculadas
-        FROM {tabela('cno_vinculos')} v LEFT JOIN nomes n ON n.ni = v."NI do responsável"
-        WHERE v."CNO" IN (SELECT "CNO" FROM obras_uf) AND v."NI do responsável" <> ''
-          AND coalesce(v."Data de fim", '') = ''
+        FROM vinc_raw v LEFT JOIN nomes n ON n.ni = v."NI do responsável"
+        WHERE v."NI do responsável" <> '' AND coalesce(v."Data de fim", '') = ''
         GROUP BY 1
     """)
     cur = con.execute("""
@@ -159,10 +160,43 @@ def montar_obras(csvs: dict[str, str], uf: str, tmp: str) -> list[dict]:
         area_ok = area if area is not None and area <= R.AREA_SUSPEITA_M2 else None
         o["prazo_meses"] = round(R.duracao_meses(o["destinacao"], area_ok, o["categoria"]), 1)
         obras.append(o)
-    return obras
+
+    # empresas de cada obra: o responsável (se tiver CNPJ) e as vinculadas
+    con.execute("""
+        CREATE TABLE ligacoes AS
+        SELECT cno, cnpj, papel, qualificacao, bool_or(ativo) AS ativo FROM (
+          SELECT "CNO" AS cno, trim("NI do responsável") AS cnpj, 'responsavel' AS papel,
+                 coalesce("Qualificação do responsavel", '') AS qualificacao, true AS ativo
+          FROM obras_uf WHERE length(trim("NI do responsável")) = 14
+          UNION ALL
+          SELECT "CNO", trim("NI do responsável"), 'vinculo', coalesce("Qualificação do contribuinte", ''),
+                 coalesce("Data de fim", '') = ''
+          FROM vinc_raw WHERE length(trim("NI do responsável")) = 14
+        ) GROUP BY 1, 2, 3, 4
+    """)
+    # matriz e filiais juntas pela raiz do CNPJ (8 primeiros dígitos)
+    con.execute("CREATE TABLE nomes_raiz AS SELECT substr(ni, 1, 8) AS raiz, min(nome) AS nome FROM nomes GROUP BY 1")
+    empresas = con.execute("""
+        SELECT substr(l.cnpj, 1, 8) AS raiz,
+               coalesce(any_value(nr.nome), 'CNPJ ' || min(l.cnpj)) AS nome,
+               list(DISTINCT l.cnpj ORDER BY l.cnpj) AS cnpjs,
+               count(DISTINCT l.cno) AS obras_total,
+               count(DISTINCT l.cno) FILTER (WHERE o."Situação" = '02') AS obras_ativas,
+               min(TRY_CAST(o."Data de início" AS DATE)) AS primeira,
+               max(TRY_CAST(o."Data de início" AS DATE)) AS ultima
+        FROM ligacoes l
+        JOIN obras_uf o ON o."CNO" = l.cno
+        LEFT JOIN nomes_raiz nr ON nr.raiz = substr(l.cnpj, 1, 8)
+        GROUP BY 1 ORDER BY 1
+    """).fetchall()
+    ligacoes = con.execute(
+        "SELECT cno, cnpj, substr(cnpj, 1, 8), papel, qualificacao, ativo FROM ligacoes ORDER BY 1, 2, 4, 5").fetchall()
+    log(f"{len(empresas):,} empresas e {len(ligacoes):,} ligações obra↔empresa")
+    return obras, ligacoes, empresas
 
 
-def gravar(obras: list[dict], url: str, arquivo_modificado: str | None) -> dict:
+def gravar(obras: list[dict], ligacoes: list[tuple], empresas: list[tuple], url: str,
+           arquivo_modificado: str | None) -> dict:
     sem_cno = [c for c in COLUNAS if c != "cno"]
     with psycopg.connect(url, autocommit=False) as conn, conn.cursor() as cur:
         cur.execute("SET statement_timeout = '10min'")
@@ -184,6 +218,45 @@ def gravar(obras: list[dict], url: str, arquivo_modificado: str | None) -> dict:
         res = cur.fetchall()
         novas = sum(1 for (n,) in res if n)
         atualizadas = len(res) - novas
+
+        # empresas (antes das ligações, por causa da chave estrangeira)
+        cur.execute("""CREATE TEMP TABLE emp_carga (cnpj_basico text, nome text, cnpjs text[], obras_total int,
+                       obras_ativas int, primeira_obra date, ultima_obra date) ON COMMIT DROP""")
+        with cur.copy("COPY emp_carga FROM STDIN") as cp:
+            for e in empresas:
+                cp.write_row(e)
+        cur.execute("""
+            INSERT INTO public.empresas AS e (cnpj_basico, nome, cnpjs, obras_total, obras_ativas, primeira_obra, ultima_obra)
+            SELECT * FROM emp_carga
+            ON CONFLICT (cnpj_basico) DO UPDATE SET nome = excluded.nome, cnpjs = excluded.cnpjs,
+              obras_total = excluded.obras_total, obras_ativas = excluded.obras_ativas,
+              primeira_obra = excluded.primeira_obra, ultima_obra = excluded.ultima_obra, atualizado_em = now()
+            WHERE (e.nome, e.cnpjs, e.obras_total, e.obras_ativas, e.primeira_obra, e.ultima_obra)
+                  IS DISTINCT FROM (excluded.nome, excluded.cnpjs, excluded.obras_total, excluded.obras_ativas,
+                                    excluded.primeira_obra, excluded.ultima_obra)
+        """)
+        log(f"empresas: {cur.rowcount:,} novas ou alteradas")
+
+        # ligações obra↔empresa: espelha o arquivo para as obras desta carga
+        cur.execute("""CREATE TEMP TABLE oe_carga (cno text, cnpj text, cnpj_basico text, papel text,
+                       qualificacao text, ativo boolean) ON COMMIT DROP""")
+        with cur.copy("COPY oe_carga FROM STDIN") as cp:
+            for lig in ligacoes:
+                cp.write_row(lig)
+        cur.execute("""
+            DELETE FROM public.obra_empresas oe
+            WHERE oe.cno IN (SELECT cno FROM carga)
+              AND NOT EXISTS (SELECT 1 FROM oe_carga n WHERE (n.cno, n.cnpj, n.papel, n.qualificacao)
+                                                          = (oe.cno, oe.cnpj, oe.papel, oe.qualificacao))
+        """)
+        removidas = cur.rowcount
+        cur.execute("""
+            INSERT INTO public.obra_empresas AS oe (cno, cnpj, cnpj_basico, papel, qualificacao, ativo)
+            SELECT * FROM oe_carga
+            ON CONFLICT (cno, cnpj, papel, qualificacao) DO UPDATE SET ativo = excluded.ativo
+            WHERE oe.ativo IS DISTINCT FROM excluded.ativo
+        """)
+        log(f"ligações obra↔empresa: {cur.rowcount:,} novas ou alteradas, {removidas:,} removidas")
         cur.execute("""
             INSERT INTO public.cargas (arquivo_modificado, obras_lidas, obras_novas, obras_atualizadas)
             VALUES (%s, %s, %s, %s) RETURNING id
@@ -215,10 +288,10 @@ def main() -> int:
     tmp = tempfile.mkdtemp(prefix="cno_")
     try:
         csvs = localizar_csvs(a.origem, tmp)
-        obras = montar_obras(csvs, a.uf, tmp)
+        obras, ligacoes, empresas = montar_obras(csvs, a.uf, tmp)
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
-    res = gravar(obras, url, modificado)
+    res = gravar(obras, ligacoes, empresas, url, modificado)
     log(f"carga {res['carga']}: {res['lidas']:,} obras lidas, {res['novas']:,} novas, {res['atualizadas']:,} atualizadas")
     resumo = os.environ.get("GITHUB_STEP_SUMMARY")
     if resumo:
