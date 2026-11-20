@@ -3,15 +3,10 @@ name: explorar-cno
 # Baixa os arquivos do CNO (Cadastro Nacional de Obras) da Receita Federal,
 # analisa a estrutura dos dados e salva o relatório em exploracao/.
 #
-# Roda quando o pipeline muda ou manualmente (aba Actions > explorar-cno > Run workflow).
-# Também serve de teste: confirma se os servidores do GitHub conseguem baixar direto da Receita.
+# Roda manualmente (aba Actions > explorar-cno > Run workflow), para estudar o arquivo inteiro.
 
 on:
-  workflow_dispatch:
-  push:
-    paths:
-      - ".github/workflows/explorar-cno.yml"
-      - "pipeline/**"
+  workflow_dispatch:   # só manual: a atualização do dia a dia é a rotina atualizar-obras
 
 permissions:
   contents: write

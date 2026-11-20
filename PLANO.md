@@ -46,9 +46,9 @@ Regras de acesso: admin lê e escreve tudo; vendedor lê só as obras encaminhad
 
 | # | Etapa | Quem faz o quê |
 |---|---|---|
-| 0 | Destravar o GitHub | Dono: instalar o app do Claude no repositório. Claude: enviar tudo o que já foi feito |
-| 1 | Testar o download automático | Claude: rotina no GitHub Actions baixando da Receita. Se falhar, montar o plano B |
-| 2 | Banco e login | Dono: criar conta e projeto no Supabase, colar 2 chaves nas configurações do GitHub. Claude: tabelas, regras de acesso, carga inicial |
+| 0 ✅ | Destravar o GitHub | Dono: instalar o app do Claude no repositório. Claude: enviar tudo o que já foi feito |
+| 1 ✅ | Testar o download automático (funcionou: ~6 min para 340 MB) | Claude: rotina no GitHub Actions baixando da Receita. Se falhar, montar o plano B |
+| 2 🔧 | Banco e login | Dono: criar conta e projeto no Supabase, colar 2 chaves nas configurações do GitHub. Claude: tabelas, regras de acesso, carga inicial |
 | 3 | Site | Dono: criar conta na Cloudflare e conectar o repositório. Claude: login, tela do admin (todas as obras, encaminhar), tela do vendedor (minhas obras, andamento, anotações) |
 | 4 | Domínio | Dono: registrar no Registro.br e trocar os servidores DNS. Claude: passar os valores e configurar |
 | 5 | Rotina ligada | Claude: agendamento a cada 4 dias e aviso de obras novas |
