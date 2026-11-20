@@ -4,6 +4,7 @@ name: explorar-cno
 # analisa a estrutura dos dados e salva o relatório em exploracao/.
 #
 # Roda quando o pipeline muda ou manualmente (aba Actions > explorar-cno > Run workflow).
+# Também serve de teste: confirma se os servidores do GitHub conseguem baixar direto da Receita.
 
 on:
   workflow_dispatch:
