@@ -7,7 +7,7 @@ export default {
     const url = new URL(request.url);
     if (url.pathname === "/config.js") {
       const cfg = env.SUPABASE_URL && env.SUPABASE_ANON_KEY
-        ? { supabaseUrl: String(env.SUPABASE_URL).trim().replace(/\/+$/, ""), supabaseKey: String(env.SUPABASE_ANON_KEY).trim() }
+        ? { supabaseUrl: String(env.SUPABASE_URL).trim().replace(/\/(rest|auth)\/v1\/?$/, "").replace(/\/+$/, ""), supabaseKey: String(env.SUPABASE_ANON_KEY).trim() }
         : null;
       return new Response(`window.RADAR_CONFIG = ${JSON.stringify(cfg)};\n`, {
         headers: { "content-type": "application/javascript; charset=utf-8", "cache-control": "no-store" },
