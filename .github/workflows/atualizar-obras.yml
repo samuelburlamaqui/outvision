@@ -1,19 +1,26 @@
 name: atualizar-obras
 
-# A cada 4 dias: baixa o CNO da Receita, filtra o Pará e atualiza o banco (Supabase).
-# Também roda quando a estrutura do banco ou a carga mudam, e manualmente
-# (aba Actions > atualizar-obras > Run workflow).
+# Baixa o CNO da Receita, filtra o Pará e atualiza o banco (Supabase).
+#
+# - Agendada todo dia, mas só carrega se a última carga tiver 3 dias ou mais
+#   (assim, se a Receita estiver fora do ar, tenta de novo no dia seguinte).
+# - Guarda o último arquivo baixado com sucesso. Se a Receita recusar o download,
+#   carrega esse arquivo anterior e avisa. Sem arquivo guardado, usa a cópia publicada
+#   na release do repositório "obras".
+# - Roda também quando a estrutura do banco ou a carga mudam, e manualmente
+#   (aba Actions > atualizar-obras > Run workflow).
 #
 # Precisa do segredo SUPABASE_DB_URL (Settings > Secrets and variables > Actions).
 
 on:
   schedule:
-    - cron: "17 9 */4 * *"   # 06:17 em Brasília, dias 1, 5, 9... de cada mês
+    - cron: "17 9 * * *"   # 06:17 em Brasília
   workflow_dispatch:
   push:
     paths:
       - ".github/workflows/atualizar-obras.yml"
       - "pipeline/carregar_supabase.py"
+      - "pipeline/baixar_receita.py"
       - "pipeline/regras.py"
       - "supabase/**"
 
@@ -27,11 +34,14 @@ concurrency:
 env:
   TOKEN_CNO: "PC6732BXG9B98W3"   # link público da Receita com o cno.zip
   UF: "PA"
+  DIAS_ENTRE_CARGAS: "3"
+  # última reserva, se a Receita falhar e não houver arquivo guardado: cópia publicada no GitHub
+  CNO_RESERVA_URL: "https://github.com/samuelburlamaqui/obras/releases/download/arquivo/cno.zip"
 
 jobs:
   atualizar:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 75
     env:
       DATABASE_URL: ${{ secrets.SUPABASE_DB_URL }}
     steps:
@@ -48,13 +58,64 @@ jobs:
             exit 1
           fi
           pip install -q duckdb==1.1.3 "psycopg[binary]==3.2.3"
-          psql --version
+
+      - name: Precisa atualizar?
+        id: precisa
+        run: |
+          if [ "$GITHUB_EVENT_NAME" != "schedule" ]; then echo "sim=1" >> "$GITHUB_OUTPUT"; exit 0; fi
+          dias=$(psql "$DATABASE_URL" -tAc "select coalesce(floor(extract(epoch from now() - max(iniciada_em)) / 86400), 999)::int from public.cargas" 2>/dev/null || echo 999)
+          echo "Última carga há $dias dia(s)."
+          if [ "$dias" -ge "$DIAS_ENTRE_CARGAS" ]; then echo "sim=1" >> "$GITHUB_OUTPUT"; else echo "Nada a fazer hoje."; fi
 
       - name: Aplicar estrutura do banco
+        if: steps.precisa.outputs.sim == '1'
         run: bash supabase/aplicar_migracoes.sh
 
+      - name: Recuperar o último CNO baixado
+        if: steps.precisa.outputs.sim == '1'
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ runner.temp }}/cno_guardado
+          key: cno-${{ github.run_id }}
+          restore-keys: cno-
+
       - name: Baixar CNO da Receita
-        run: python pipeline/baixar_receita.py "$RUNNER_TEMP/cno" "$RUNNER_TEMP/manifesto.json" "$TOKEN_CNO"
+        id: baixar
+        if: steps.precisa.outputs.sim == '1'
+        continue-on-error: true
+        run: python pipeline/baixar_receita.py "$RUNNER_TEMP/cno" "$RUNNER_TEMP/cno/manifesto.json" "$TOKEN_CNO"
+
+      - name: Escolher o arquivo a carregar
+        id: arquivo
+        if: steps.precisa.outputs.sim == '1'
+        run: |
+          if [ "${{ steps.baixar.outcome }}" = "success" ]; then
+            rm -rf "$RUNNER_TEMP/cno_guardado" && mkdir -p "$RUNNER_TEMP/cno_guardado"
+            find "$RUNNER_TEMP/cno" -name '*.zip' -exec cp {} "$RUNNER_TEMP/cno_guardado/cno.zip" \;
+            cp "$RUNNER_TEMP/cno/manifesto.json" "$RUNNER_TEMP/cno_guardado/manifesto.json"
+            echo "pasta=$RUNNER_TEMP/cno" >> "$GITHUB_OUTPUT"
+            echo "guardar=1" >> "$GITHUB_OUTPUT"
+          elif [ -f "$RUNNER_TEMP/cno_guardado/cno.zip" ]; then
+            data=$(python -c "import json;m=json.load(open('$RUNNER_TEMP/cno_guardado/manifesto.json'));print([a.get('modificado') for c in m['compartilhamentos'] for a in c['arquivos']][0])" 2>/dev/null || echo "?")
+            echo "::warning::A Receita não respondeu. Carregando o último CNO baixado (arquivo de $data). Amanhã a rotina tenta de novo."
+            echo "pasta=$RUNNER_TEMP/cno_guardado" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning::A Receita não respondeu e não há arquivo guardado. Usando a cópia da release do repositório obras. Amanhã a rotina tenta de novo."
+            mkdir -p "$RUNNER_TEMP/cno_reserva"
+            curl -fsSL --retry 3 -o "$RUNNER_TEMP/cno_reserva/cno.zip" "$CNO_RESERVA_URL"
+            echo '{"compartilhamentos":[{"arquivos":[{"caminho":"cno.zip","modificado":"cópia da release (repositório obras)"}]}]}' > "$RUNNER_TEMP/cno_reserva/manifesto.json"
+            echo "pasta=$RUNNER_TEMP/cno_reserva" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Guardar o CNO baixado para a próxima vez
+        if: steps.arquivo.outputs.guardar == '1'
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ runner.temp }}/cno_guardado
+          key: cno-${{ github.run_id }}
 
       - name: Carregar obras no banco
-        run: python pipeline/carregar_supabase.py "$RUNNER_TEMP/cno" --uf "$UF" --manifesto "$RUNNER_TEMP/manifesto.json"
+        if: steps.precisa.outputs.sim == '1'
+        run: |
+          pasta="${{ steps.arquivo.outputs.pasta }}"
+          python pipeline/carregar_supabase.py "$pasta" --uf "$UF" --manifesto "$pasta/manifesto.json"

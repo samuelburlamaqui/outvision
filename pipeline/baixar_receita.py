@@ -37,7 +37,7 @@ PROPFIND_BODY = (
 
 
 def abrir(url: str, metodo: str = "GET", auth: str | None = None,
-          headers: dict | None = None, data: bytes | None = None, tentativas: int = 4):
+          headers: dict | None = None, data: bytes | None = None, tentativas: int = 4, espera_base: int = 5):
     h = {"User-Agent": UA}
     if headers:
         h.update(headers)
@@ -55,14 +55,14 @@ def abrir(url: str, metodo: str = "GET", auth: str | None = None,
             ultimo_erro = e
         except Exception as e:  # noqa: BLE001
             ultimo_erro = e
-        espera = 5 * (2 ** i)
+        espera = espera_base * (2 ** i)
         print(f"   ! falha em {metodo} {url}: {ultimo_erro} — nova tentativa em {espera}s", flush=True)
         time.sleep(espera)
     raise ultimo_erro  # type: ignore[misc]
 
 
 def propfind(url: str, auth: str | None) -> list[dict]:
-    with abrir(url, "PROPFIND", auth, {"Depth": "1", "Content-Type": "application/xml"}, PROPFIND_BODY) as r:
+    with abrir(url, "PROPFIND", auth, {"Depth": "1", "Content-Type": "application/xml"}, PROPFIND_BODY, tentativas=2) as r:
         corpo = r.read()
     raiz = ET.fromstring(corpo)
     itens = []
@@ -108,10 +108,10 @@ def listar_recursivo(raiz_url: str, auth: str | None) -> list[dict]:
     return arquivos
 
 
-def baixar(url: str, destino: str, auth: str | None) -> dict:
+def baixar(url: str, destino: str, auth: str | None, tentativas: int = 4, espera_base: int = 5) -> dict:
     os.makedirs(os.path.dirname(destino) or ".", exist_ok=True)
     inicio = time.time()
-    with abrir(url, "GET", auth) as r:
+    with abrir(url, "GET", auth, tentativas=tentativas, espera_base=espera_base) as r:
         info = {"status": r.status, "content_type": r.headers.get("Content-Type"),
                 "content_disposition": r.headers.get("Content-Disposition"),
                 "last_modified": r.headers.get("Last-Modified")}
@@ -143,6 +143,27 @@ def nome_do_content_disposition(cd: str | None, padrao: str) -> str:
 def processar_token(token: str, pasta: str) -> dict:
     registro: dict = {"token": token, "link": f"{BASE}/index.php/s/{token}", "tentativas": [], "arquivos": []}
     destino_base = os.path.join(pasta, token)
+
+    # 1) download direto do compartilhamento — é o caminho que a Receita atende;
+    #    tenta por até ~8 min (15s, 30s, 1min, 2min, 4min) porque o servidor às vezes recusa conexões
+    url = f"{BASE}/index.php/s/{token}/download"
+    try:
+        print(f"-> [{token}] download direto: {url}", flush=True)
+        tmp = os.path.join(destino_base, "_download")
+        info = baixar(url, tmp, None, tentativas=6, espera_base=15)
+        nome = nome_do_content_disposition(info.get("content_disposition"), f"{token}.bin")
+        final = os.path.join(destino_base, nome)
+        os.replace(tmp, final)
+        registro["metodo"] = "download-direto"
+        registro["arquivos"] = [{"caminho": nome, "url": url, "local": final, "tamanho": info["bytes"],
+                                 "modificado": info.get("last_modified"), "download": info}]
+        registro["tentativas"].append({"metodo": "download-direto", "ok": True})
+        return registro
+    except Exception as e:  # noqa: BLE001
+        print(f"   ! download direto falhou: {e!r}", flush=True)
+        registro["tentativas"].append({"metodo": "download-direto", "ok": False, "erro": repr(e)})
+
+    # 2) reserva: listar e baixar pelo WebDAV público
     candidatos = [
         (f"{BASE}/public.php/dav/files/{token}/", None, "webdav-novo"),
         (f"{BASE}/public.php/webdav/", token, "webdav-antigo"),
@@ -155,8 +176,6 @@ def processar_token(token: str, pasta: str) -> dict:
             if not arquivos:
                 continue
             for a in arquivos:
-                print(f"   • {a['caminho']}  ({(a.get('tamanho') or 0) / 1e6:,.1f} MB, modificado {a.get('modificado')})", flush=True)
-            for a in arquivos:
                 local = os.path.join(destino_base, a["caminho"])
                 a["download"] = baixar(a["url"], local, auth)
                 a["local"] = local
@@ -166,23 +185,6 @@ def processar_token(token: str, pasta: str) -> dict:
         except Exception as e:  # noqa: BLE001
             print(f"   ! {nome} falhou: {e!r}", flush=True)
             registro["tentativas"].append({"metodo": nome, "ok": False, "erro": repr(e)})
-
-    # Último recurso: download direto do compartilhamento
-    url = f"{BASE}/index.php/s/{token}/download"
-    try:
-        print(f"-> [{token}] download direto: {url}", flush=True)
-        tmp = os.path.join(destino_base, "_download")
-        info = baixar(url, tmp, None)
-        nome = nome_do_content_disposition(info.get("content_disposition"), f"{token}.bin")
-        final = os.path.join(destino_base, nome)
-        os.replace(tmp, final)
-        registro["metodo"] = "download-direto"
-        registro["arquivos"] = [{"caminho": nome, "url": url, "local": final, "tamanho": info["bytes"],
-                                 "modificado": info.get("last_modified"), "download": info}]
-        registro["tentativas"].append({"metodo": "download-direto", "ok": True})
-    except Exception as e:  # noqa: BLE001
-        print(f"   ! download direto falhou: {e!r}", flush=True)
-        registro["tentativas"].append({"metodo": "download-direto", "ok": False, "erro": repr(e)})
     return registro
 
 
