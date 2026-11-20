@@ -1,0 +1,81 @@
+{
+  "gerado_em": "2026-11-20T14:08:50Z",
+  "compartilhamentos": [
+    {
+      "token": "XEa8aE7wJdMGzkE",
+      "link": "https://arquivos.receitafederal.gov.br/index.php/s/XEa8aE7wJdMGzkE",
+      "tentativas": [
+        {
+          "metodo": "webdav-novo",
+          "ok": true,
+          "qtd": 0
+        },
+        {
+          "metodo": "webdav-antigo",
+          "ok": true,
+          "qtd": 0
+        },
+        {
+          "metodo": "download-direto",
+          "ok": true
+        }
+      ],
+      "arquivos": [
+        {
+          "caminho": "cno-metadados.pdf",
+          "url": "https://arquivos.receitafederal.gov.br/index.php/s/XEa8aE7wJdMGzkE/download",
+          "local": "/home/runner/work/_temp/cno/XEa8aE7wJdMGzkE/cno-metadados.pdf",
+          "tamanho": 50650,
+          "modificado": "Thu, 29 Jan 2026 15:07:12 GMT",
+          "download": {
+            "status": 200,
+            "content_type": "application/pdf",
+            "content_disposition": "attachment; filename*=UTF-8''cno-metadados.pdf; filename=\"cno-metadados.pdf\"",
+            "last_modified": "Thu, 29 Jan 2026 15:07:12 GMT",
+            "bytes": 50650,
+            "segundos": 4.4
+          }
+        }
+      ],
+      "metodo": "download-direto"
+    },
+    {
+      "token": "PC6732BXG9B98W3",
+      "link": "https://arquivos.receitafederal.gov.br/index.php/s/PC6732BXG9B98W3",
+      "tentativas": [
+        {
+          "metodo": "webdav-novo",
+          "ok": true,
+          "qtd": 0
+        },
+        {
+          "metodo": "webdav-antigo",
+          "ok": true,
+          "qtd": 0
+        },
+        {
+          "metodo": "download-direto",
+          "ok": true
+        }
+      ],
+      "arquivos": [
+        {
+          "caminho": "cno.zip",
+          "url": "https://arquivos.receitafederal.gov.br/index.php/s/PC6732BXG9B98W3/download",
+          "local": "/home/runner/work/_temp/cno/PC6732BXG9B98W3/cno.zip",
+          "tamanho": 340400638,
+          "modificado": "Fri, 20 Nov 2026 04:57:29 GMT",
+          "download": {
+            "status": 200,
+            "content_type": "application/zip",
+            "content_disposition": "attachment; filename*=UTF-8''cno.zip; filename=\"cno.zip\"",
+            "last_modified": "Fri, 20 Nov 2026 04:57:29 GMT",
+            "bytes": 340400638,
+            "segundos": 352.4
+          }
+        }
+      ],
+      "metodo": "download-direto"
+    }
+  ]
+}

@@ -1,0 +1,180 @@
+                        CNO - Cadastro Nacional de Obras
+
+Arquivo: CNO.CSV
+
+
+Atributo            Formato   Tamanho   Descrição
+
+CNO                 Número      12      Número do CNO
+
+Código do país      Número      3       Código do país
+
+Nome do País         Texto      49      Nome do País
+
+                                        Data de início da obra (formato
+Data de início       Data       8
+                                        AAAA-MM-DD)
+
+Data de início da                       Data de início do período de
+                     Data       8
+responsabilidade                        responsabilidade da obra (formato AAAA-MM-DD)
+
+Data de registro     Data       8       Data de registro (formato AAAA-MM-DD)
+
+CNO vinculado       Número      12      Número da inscrição vinculada da obra
+
+CEP                 Número      8       Número do CEP (somente Brasil)
+
+NI do                                   NI do responsável pela obra
+                    Número      14
+responsável                             (Se for CPF o campo virá em branco)
+
+                                        Qualificação do responsável pela obra
+                                        0070 - Proprietário do Imóvel
+                                        0057 - Dono da Obra
+Qualificação do                         0064 - Incorporador de Construção Civil
+                    Número      4
+responsável                             0053 - Pessoa Jurídica Construtora
+                                        0111 - Sociedade Líder de Consórcio
+                                        0109 - Consórcio
+                                        0110 - Construção em nome coletivo
+
+Nome                 Texto     100      Nome da obra
+
+Código do
+                    Número      4       Código do município (TOM)
+município
+
+Nome do
+                     Texto      50      Nome do município
+município
+
+Tipo de
+                     Texto      11      Tipo de logradouro
+logradouro
+
+Logradouro           Texto      60      Logradouro
+
+Número do
+                     Texto      6       Número do logradouro
+logradouro
+
+Bairro               Texto      50      Bairro
+
+Estado               Texto      50      Estado
+ Caixa Postal        Texto          8    Caixa postal no exterior
+
+ Complemento         Texto       156     Complemento do endereço
+ Unidade de
+                     Texto       20      Unidade de medida da obra
+ medida
+ Área total         Número       11      Valor da área total da obra
+
+                                         Situação da obra
+                                         01 - NULA
+                                         02 - ATIVA
+ Situação           Número          2    03 – SUSPENSA
+                                         14 - PARALISADA 15 -
+                                         ENCERRADA
+
+                                         Data da situação da obra (formato
+ Data da situação    Data           8
+                                         AAAA-MM-DD)
+
+                                         Nome empresarial do responsável pela obra ( Se
+ Nome
+                     Texto       150     responsável pessoa física, o campo virá em
+ empresarial
+                                         branco)
+
+
+ Localização         Texto       11      Código da localização
+
+
+
+
+Arquivo: CNO_CNAES.CSV
+
+
+ Atributo           Formato   Tamanho   Descrição
+
+ CNO                Número      12      Número do CNO
+
+ CNAE               Número      7       Número do CNAE
+
+ Data de registro    Data       8       Data de registro (formato AAAA-MM-DD)
+
+
+
+Arquivo: CNO_VINCULOS.CSV
+
+
+ Atributo           Formato   Tamanho   Descrição
+
+ CNO                Número      12      Número do CNO
+                                        Data de início da obra (formato
+ Data de início      Data        8
+                                        AAAA-MM-DD)
+                                        Data de fim da obra (formato
+ Data de fim         Data        8
+                                        AAAA-MM-DD)
+                                         Qualificação do contribuinte
+                                         0053 - Pessoa Jurídica Construtora
+                                         0057 - Dono da Obra
+ Qualificação do                         0064 - Incorporador de Construção Civil
+                     Número       4
+ contribuinte                            0070 - Proprietário do Imóvel
+                                         0109 - Consórcio
+                                         0110 - Construção em nome coletivo
+                                         0111 - Sociedade Líder de Consórcio
+ NI do                                   NI do responsável pela obra
+                     Número      14
+ responsável                             (Se for CPF o campo virá em branco)
+
+
+
+Arquivo: CNO_AREAS.CSV
+
+
+ Atributo            Formato   Tamanho   Descrição
+
+ CNO                 Número      12      Número do CNO
+                                         0 - Obra Nova
+                                         1 - Acréscimo
+ Categoria            Texto      150     2 - Reforma
+                                         3 – Demolição
+                                         4 - Existente
+                                         0 - Residencial unifamiliar
+                                         1 - Residencial multifamiliar
+                                         2 - Comercial salas e lojas
+ Destinação           Texto      150     3 - Edifício de Garagens
+                                         4 - Galpão industrial
+                                         5 - Casa popular
+                                         6 - Conjunto habitacional popular
+                                         0 - Alvenaria
+ Tipo de Obra         Texto      150     1 - Madeira
+                                         2 - Mista
+                                         P - Principal
+ Tipo de Area         Texto      150
+                                         C - Complementar
+                                         0 - Quadra Esportiva e Poliesportiva
+ Tipo de Área                            1 - Estacionamento Térreo
+                      Texto      150
+ Complementar                            2 - Piscina
+                                         3 - Área Complementar do Posto de Gasolina
+ Metragem            Número      22      Metragem da área
+
+
+Arquivo: CNO_TOTAIS.CSV
+
+
+ Atributo            Formato   Tamanho   Descrição
+
+ Total de obras      Número      11      Total de registros do arquivo cno.csv
+
+ Total de cnaes      Número      11      Total de registros do arquivo cno_cnaes.csv
+
+ Total de áreas      Número      11      Total de registros do arquivo cno_areas.csv
+
+ Total de vínculos   Número      11      Total de registros do arquivo cno_vinculos.csv
+
