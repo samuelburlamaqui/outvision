@@ -22,6 +22,9 @@ quem visitar e ligar.
 | Análise comercial (Brasil) | [`exploracao/PROSPECCAO_BRASIL.md`](exploracao/PROSPECCAO_BRASIL.md) |
 | Perfil técnico de cada coluna | [`exploracao/RELATORIO_CNO.md`](exploracao/RELATORIO_CNO.md) |
 | Análise com olhar de prospecção | [`pipeline/analisar_prospeccao.py`](pipeline/analisar_prospeccao.py) |
+| **Obras do Pará (≥ 800 m², sem infraestrutura)** | [`exploracao/OBRAS_PA.md`](exploracao/OBRAS_PA.md) |
+| Regras do recorte, fases e janelas por produto | [`pipeline/regras.py`](pipeline/regras.py) |
+| Gerador da planilha de obras | [`pipeline/gerar_leads.py`](pipeline/gerar_leads.py) |
 | Dicionário de dados (texto) | [`exploracao/dicionario/`](exploracao/dicionario/) |
 
 O Action roda sozinho a cada mudança no pipeline, ou manualmente em
