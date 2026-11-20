@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+.venv/
+venv/
+*.duckdb
+*.parquet
+dados_brutos/
