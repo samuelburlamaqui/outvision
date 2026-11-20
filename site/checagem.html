@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>radar de obras · checagem</title>
+<link rel="icon" href="icone.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@400;700&family=Inter:wght@400;600&display=swap">
+<style>
+:root { --bg: #f4f6f0; --surface: #fff; --fg: #1d2418; --muted: #5d6656; --line: #dbe1d2; --ok: #3f6b17; --ok-bg: #e9f3de; --erro: #9a3412; --erro-bg: #fdeee6; color-scheme: light; }
+@media (prefers-color-scheme: dark) { :root { --bg: #121510; --surface: #1a1e17; --fg: #ebefe5; --muted: #a3ac98; --line: #2f3629; --ok: #b5dc93; --ok-bg: #26301d; --erro: #f4a582; --erro-bg: #3a2218; color-scheme: dark; } }
+* { box-sizing: border-box; }
+body { margin: 0; min-height: 100vh; background: var(--bg); color: var(--fg); font: 16px/1.5 Inter, system-ui, sans-serif;
+  display: grid; place-items: center; padding: 24px max(16px, env(safe-area-inset-right)) 24px max(16px, env(safe-area-inset-left)); }
+main { width: min(520px, 100%); display: grid; gap: 20px; }
+.marca { display: flex; align-items: center; gap: 12px; }
+.marca img { width: 48px; height: 48px; }
+.marca span { font-family: Sora, Inter, sans-serif; font-size: 30px; letter-spacing: -0.01em; }
+.cartao { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 20px; display: grid; gap: 12px; }
+h1 { font-size: 18px; margin: 0; }
+p { margin: 0; color: var(--muted); }
+ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+li { padding: 10px 12px; border-radius: 8px; background: var(--bg); }
+li.ok { background: var(--ok-bg); color: var(--ok); }
+li.erro { background: var(--erro-bg); color: var(--erro); }
+</style>
+</head>
+<body>
+<main>
+  <div class="marca"><img src="icone.svg" alt=""><span><b>radar</b> de obras</span></div>
+  <section class="cartao">
+    <h1>Site em construção</h1>
+    <p>Esta página confere se a hospedagem está ligada ao banco de dados.</p>
+    <ul id="checagens"><li>Conferindo…</li></ul>
+  </section>
+</main>
+<script src="config.js"></script>
+<script>
+(async function () {
+  const lista = document.getElementById("checagens");
+  const itens = [];
+  const mostrar = () => { lista.innerHTML = itens.map(([ok, t]) => `<li class="${ok ? "ok" : "erro"}">${ok ? "✓" : "✗"} ${t}</li>`).join(""); };
+  const cfg = window.RADAR_CONFIG;
+  if (!cfg) { itens.push([false, "Chaves do Supabase não configuradas na Cloudflare (SUPABASE_URL e SUPABASE_ANON_KEY)."]); return mostrar(); }
+  itens.push([true, "Chaves do Supabase configuradas."]);
+  try {
+    const r = await fetch(cfg.supabaseUrl + "/auth/v1/settings", { headers: { apikey: cfg.supabaseKey } });
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    const s = await r.json();
+    itens.push([true, "Supabase respondeu."]);
+    itens.push([!!s.disable_signup, s.disable_signup ? "Cadastro aberto desligado: só entra quem for convidado." : "Cadastro aberto ainda ligado: qualquer pessoa poderia criar conta."]);
+  } catch (e) {
+    itens.push([false, "Supabase não respondeu com essas chaves (" + e.message + "). Confira os valores na Cloudflare."]);
+  }
+  mostrar();
+})();
+</script>
+</body>
+</html>
