@@ -101,7 +101,7 @@ def carregar(parquet: str, ufs: list[str]) -> list[dict]:
 
 def classificar(obras: list[dict], data_ref: dt.date) -> tuple[list[dict], list[dict], Counter]:
     leads, excluidas, cortes = [], [], Counter()
-    limite_inicio = data_ref.replace(year=data_ref.year - R.ANOS_MAX_DESDE_INICIO)
+    limite_inicio = dt.date.fromisoformat(R.INICIO_MINIMO)
     for o in obras:
         area = o["area"]
         suspeita = area is not None and area > R.AREA_SUSPEITA_M2
@@ -112,7 +112,7 @@ def classificar(obras: list[dict], data_ref: dt.date) -> tuple[list[dict], list[
             cortes["categoria demolição"] += 1
             continue
         if o["inicio"] is None or o["inicio"] < limite_inicio:
-            cortes[f"início há mais de {R.ANOS_MAX_DESDE_INICIO} anos"] += 1
+            cortes[f"início antes de {limite_inicio:%d/%m/%Y}"] += 1
             continue
         motivo = R.motivo_infra(o["nome_obra"], o["cnaes"])
         if motivo:
@@ -131,9 +131,7 @@ def classificar(obras: list[dict], data_ref: dt.date) -> tuple[list[dict], list[
             "fase": R.fase(pct),
             "janelas": R.janelas_abertas(pct),
         })
-        if pct >= 115:
-            cortes["provavelmente concluída (pelo prazo estimado)"] += 1
-            o["concluida"] = True
+        o["concluida"] = pct >= 115  # só informativo: a obra continua na lista
         leads.append(o)
     return leads, excluidas, cortes
 
@@ -236,7 +234,7 @@ def escrever_xlsx(caminho: str, leads: list[dict], excluidas: list[dict], data_r
         ("Fonte", "CNO — Cadastro Nacional de Obras, Receita Federal (dados abertos)"),
         ("Data de referência", data_ref.strftime("%d/%m/%Y") + " — fase e % do prazo foram calculados nesta data"),
         ("Recorte", f"Estado {', '.join(R.UFS)}; obra ativa; área principal ≥ {R.AREA_MINIMA_M2} m²; "
-                    f"início nos últimos {R.ANOS_MAX_DESDE_INICIO} anos; sem demolição; sem infraestrutura "
+                    f"início a partir de {R.INICIO_MINIMO}; sem demolição; sem infraestrutura "
                     "(pavimentação, estradas, saneamento, pontes, redes de energia...)"),
         ("", ""),
         ("Como a fase é estimada", "% do prazo = meses desde o início ÷ prazo típico da obra. O prazo típico depende "
@@ -264,17 +262,53 @@ def escrever_xlsx(caminho: str, leads: list[dict], excluidas: list[dict], data_r
     wb.save(caminho)
 
 
+def escrever_json(caminho: str, leads: list[dict], excluidas: list[dict], cortes: Counter,
+                  total: int, data_ref: dt.date) -> None:
+    """Dados para a página: meta (regras e contagens) + uma obra por linha."""
+    import json
+
+    def d(x):
+        return x.isoformat() if x else None
+
+    meta = {
+        "data_ref": d(data_ref), "uf": R.UFS, "area_minima": R.AREA_MINIMA_M2, "inicio_minimo": R.INICIO_MINIMO,
+        "ativas_no_estado": total, "cortes": dict(cortes),
+        "janelas": [{"nome": k, "ini": v[0], "fim": v[1]} for k, v in R.JANELAS.items()],
+        "fases": [{"ate": lim, "nome": nome} for lim, nome in R.FASES],
+    }
+    linhas = []
+    for o in sorted(leads, key=prioridade):
+        linhas.append({
+            "cno": fmt_cno(o["cno"]), "obra": o["nome_obra"], "resp": o["nome_empresarial"] or o["nome_obra"],
+            "cnpj": fmt_cnpj(o["cnpj"]), "qualif": QUALIFICACAO.get(o["qualificacao"], o["qualificacao"]),
+            "vinc": o["vinculadas"] or "", "mun": o["municipio"], "bairro": o["bairro"], "end": endereco(o),
+            "cep": o["cep"], "dest": o["destinacao"], "dests": o["destinacoes"], "cat": o["categoria"],
+            "area": round(o["area"]) if o["area"] else None, "susp": o["area_suspeita"],
+            "inicio": d(o["inicio"]), "registro": d(o["registro"]), "prazo": o["duracao_meses"],
+            "mapa": link_mapa(o),
+        })
+    excl = [{"cno": fmt_cno(o["cno"]), "obra": o["nome_obra"], "resp": o["nome_empresarial"] or "",
+             "mun": o["municipio"], "dest": o["destinacao"], "area": round(o["area"]) if o["area"] else None,
+             "motivo": o["motivo"]} for o in sorted(excluidas, key=lambda x: -(x["area"] or 0))]
+    with open(caminho, "w", encoding="utf-8") as f:
+        f.write('{"meta":' + json.dumps(meta, ensure_ascii=False) + ',\n"excluidas":'
+                + json.dumps(excl, ensure_ascii=False) + ',\n"obras":[\n')
+        f.write(",\n".join(json.dumps(x, ensure_ascii=False) for x in linhas))
+        f.write("\n]}\n")
+
+
 def escrever_resumo(caminho: str, leads: list[dict], excluidas: list[dict], cortes: Counter,
                     total: int, data_ref: dt.date) -> None:
-    ativos = [o for o in leads if not o.get("concluida")]
+    ativos = leads
+    n_conc = sum(1 for o in leads if o.get("concluida"))
     L = [f"# Obras para prospecção — {', '.join(R.UFS)}", "",
          f"Data de referência: **{data_ref:%d/%m/%Y}**. Regras em [`pipeline/regras.py`](../pipeline/regras.py).", "",
          f"Obras ativas no estado: **{total:,}**".replace(",", "."), "",
          "| Etapa do filtro | Obras retiradas |", "|---|---:|"]
     for k, v in cortes.most_common():
         L.append(f"| {k} | {v:,} |".replace(",", "."))
-    L += ["", f"**Lista final: {len(ativos):,} obras em andamento**".replace(",", ".") +
-          f" (+ {len(leads) - len(ativos)} que pelo prazo já devem ter terminado, mantidas para conferência).", ""]
+    L += ["", f"**Lista final: {len(leads):,} obras**".replace(",", ".") +
+          f" — destas, {n_conc} já passaram do prazo estimado (podem ter terminado sem dar baixa no CNO).", ""]
 
     def tab(titulo, chave, itens, n=None):
         cnt = Counter(chave(o) for o in itens)
@@ -311,7 +345,10 @@ def main() -> int:
 
     obras = carregar(a.parquet, R.UFS)
     leads, excluidas, cortes = classificar(obras, data_ref)
-    escrever_xlsx(a.xlsx, leads, excluidas, data_ref)
+    if a.xlsx.endswith(".xlsx"):
+        escrever_xlsx(a.xlsx, leads, excluidas, data_ref)
+    else:
+        escrever_json(a.xlsx, leads, excluidas, cortes, len(obras), data_ref)
     escrever_resumo(a.resumo, leads, excluidas, cortes, len(obras), data_ref)
     print(f"{len(obras)} obras ativas -> {len(leads)} na lista ({len(excluidas)} infraestrutura excluídas)")
     print(dict(cortes))

@@ -1,0 +1,389 @@
+<title>Radar de Obras Pará</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: cabeçalho enxuto, barra de filtros, grade de fichas de obra (1/2/3 colunas) com a linha do tempo da obra em cada ficha. */
+:root {
+  --bg: #f4f3f6;
+  --surface: #ffffff;
+  --surface-2: #ecebef;
+  --fg: #1c1a20;
+  --muted: #66616e;
+  --line: #dedbe3;
+  --accent: #6b2d7e;      /* açaí */
+  --accent-fg: #ffffff;
+  --accent-soft: #f1e8f4;
+  --cabos: #b45f22;       /* cobre */
+  --pisos: #18806f;       /* porcelanato esverdeado */
+  --assa: #2d5c9c;        /* aço */
+  --warn: #9a5400;
+  --warn-soft: #fbefdc;
+  --font-display: "Barlow Condensed", "Arial Narrow", system-ui, sans-serif;
+  --font-body: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  --radius: 10px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #131116; --surface: #1c1a20; --surface-2: #26232b; --fg: #eeebf2; --muted: #a29cab; --line: #322e38;
+    --accent: #c992db; --accent-fg: #1c1a20; --accent-soft: #2e2236;
+    --cabos: #e48a4b; --pisos: #4cc3ad; --assa: #7fa8e8; --warn: #f0b35a; --warn-soft: #3a2d18;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #131116; --surface: #1c1a20; --surface-2: #26232b; --fg: #eeebf2; --muted: #a29cab; --line: #322e38;
+  --accent: #c992db; --accent-fg: #1c1a20; --accent-soft: #2e2236;
+  --cabos: #e48a4b; --pisos: #4cc3ad; --assa: #7fa8e8; --warn: #f0b35a; --warn-soft: #3a2d18;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--fg); font-family: var(--font-body); font-size: 15px; line-height: 1.45;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 20px 48px;
+}
+.wrap { max-width: 1280px; margin: 0 auto; display: grid; gap: 18px; }
+h1, h2, h3 { margin: 0; text-wrap: balance; }
+a { color: var(--accent); }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.num { font-variant-numeric: tabular-nums; }
+.mono { font-family: var(--font-mono); font-size: 0.86em; }
+
+/* Cabeçalho */
+header { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 8px 24px; }
+header h1 { font-family: var(--font-display); font-weight: 700; font-size: clamp(30px, 5vw, 42px); letter-spacing: 0.01em; line-height: 1; }
+header h1 span { color: var(--accent); }
+.fonte { color: var(--muted); font-size: 13px; max-width: 62ch; }
+
+/* Painel de filtros */
+.painel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px; display: grid; gap: 12px; }
+.linha { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.campo { display: grid; gap: 4px; flex: 1 1 180px; min-width: 0; }
+.campo label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); font-weight: 600; }
+input[type="search"], select {
+  font: inherit; color: var(--fg); background: var(--bg); border: 1px solid var(--line); border-radius: 8px;
+  padding: 10px 12px; min-height: 44px; width: 100%;
+}
+.campo.busca { flex: 3 1 280px; }
+.toggle { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; font-size: 14px; cursor: pointer; user-select: none; }
+.toggle input { width: 20px; height: 20px; accent-color: var(--accent); }
+
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip {
+  --c: var(--accent);
+  font: inherit; font-size: 14px; display: inline-flex; align-items: center; gap: 8px; min-height: 40px;
+  padding: 6px 14px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); color: var(--fg); cursor: pointer;
+}
+.chip .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--c); flex: none; }
+.chip b { font-variant-numeric: tabular-nums; font-weight: 600; }
+.chip[aria-pressed="true"] { background: var(--c); border-color: var(--c); color: var(--surface); }
+.chip[aria-pressed="true"] .dot { background: var(--surface); }
+.chip.todas { --c: var(--fg); }
+.chip.prazo { --c: var(--warn); }
+
+.resumo { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 8px; color: var(--muted); font-size: 14px; }
+.resumo strong { color: var(--fg); font-family: var(--font-display); font-size: 22px; font-weight: 700; }
+
+/* Legenda da linha do tempo */
+.legenda { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 12px; color: var(--muted); }
+.legenda span { display: inline-flex; align-items: center; gap: 6px; }
+.legenda i { width: 18px; height: 6px; border-radius: 3px; background: var(--c); display: inline-block; }
+
+/* Fichas */
+.grade { display: grid; gap: 14px; grid-template-columns: 1fr; }
+@media (min-width: 760px) { .grade { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (min-width: 1180px) { .grade { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+
+.ficha { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; display: grid; gap: 12px; min-width: 0; align-content: start; }
+.ficha .topo { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+.tags { display: flex; flex-wrap: wrap; gap: 6px; }
+.tag { font-size: 12px; padding: 3px 8px; border-radius: 6px; background: var(--surface-2); color: var(--muted); white-space: nowrap; }
+.tag.alerta { background: var(--warn-soft); color: var(--warn); }
+.area { text-align: right; flex: none; }
+.area b { display: block; font-family: var(--font-display); font-size: 26px; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; }
+.area small { color: var(--muted); font-size: 12px; }
+.ficha h3 { font-size: 16px; font-weight: 600; line-height: 1.3; overflow-wrap: anywhere; }
+.resp { font-size: 14px; color: var(--muted); display: grid; gap: 2px; min-width: 0; }
+.resp .nome { color: var(--fg); overflow-wrap: anywhere; }
+.cnpj { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.copiar {
+  font: inherit; font-size: 12px; color: var(--accent); background: none; border: 1px solid var(--line); border-radius: 6px;
+  padding: 4px 8px; min-height: 30px; cursor: pointer;
+}
+.local { font-size: 14px; display: grid; gap: 2px; }
+.local .end { color: var(--muted); overflow-wrap: anywhere; }
+.mapa { display: inline-flex; align-items: center; gap: 4px; font-weight: 500; font-size: 14px; min-height: 36px; text-decoration: none; }
+.mapa:hover { text-decoration: underline; }
+
+/* Linha do tempo da obra: 0% = início, 100% = fim previsto, até 130% */
+.tempo { display: grid; gap: 6px; }
+.tempo .cab { display: flex; justify-content: space-between; gap: 8px; font-size: 13px; }
+.tempo .fase { font-weight: 600; }
+.tempo .meses { color: var(--muted); font-variant-numeric: tabular-nums; }
+.trilho { position: relative; height: 34px; }
+.raia { position: absolute; left: 0; right: 0; height: 5px; background: var(--surface-2); border-radius: 3px; }
+.raia i { position: absolute; top: 0; bottom: 0; border-radius: 3px; background: var(--c); opacity: 0.35; }
+.raia i.aberta { opacity: 1; }
+.alem { position: absolute; top: 0; bottom: 0; right: 0; background: repeating-linear-gradient(135deg, transparent 0 4px, var(--line) 4px 6px); border-left: 1px dashed var(--muted); }
+.hoje { position: absolute; top: -3px; bottom: -3px; width: 2px; margin-left: -1px; background: var(--fg); border-radius: 1px; }
+.hoje::after { content: ""; position: absolute; top: -4px; left: -4px; width: 10px; height: 10px; border-radius: 50%; background: var(--fg); }
+.escala { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); position: relative; height: 14px; }
+.escala span { position: absolute; transform: translateX(-50%); white-space: nowrap; }
+.escala span:first-child { transform: none; }
+.agora { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 13px; }
+.agora .rot { color: var(--muted); }
+.prod { --c: var(--accent); display: inline-flex; align-items: center; gap: 6px; padding: 3px 9px; border-radius: 999px; border: 1px solid var(--c); color: var(--c); font-weight: 500; }
+
+.rodape { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12px; color: var(--muted); border-top: 1px solid var(--line); padding-top: 10px; }
+details.vinc { font-size: 13px; }
+details.vinc summary { cursor: pointer; color: var(--muted); min-height: 28px; }
+details.vinc p { margin: 6px 0 0; overflow-wrap: anywhere; }
+
+.mais { justify-self: center; font: inherit; font-weight: 600; color: var(--accent-fg); background: var(--accent); border: 0; border-radius: 8px; padding: 12px 22px; min-height: 48px; cursor: pointer; }
+.vazio { text-align: center; color: var(--muted); padding: 32px 0; }
+
+/* Seções de apoio */
+details.apoio { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px; }
+details.apoio summary { cursor: pointer; font-weight: 600; min-height: 28px; }
+details.apoio .corpo { margin-top: 12px; display: grid; gap: 10px; font-size: 14px; max-width: 75ch; }
+details.apoio .corpo p { margin: 0; }
+.tabela { overflow-x: auto; max-width: 100%; }
+table { border-collapse: collapse; font-size: 13px; min-width: 640px; width: 100%; }
+th, td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); }
+td.n { text-align: right; font-variant-numeric: tabular-nums; }
+
+@media (prefers-reduced-motion: no-preference) { .chip, .copiar, .mais { transition: background-color 120ms, color 120ms; } }
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>Radar de Obras <span>Pará</span></h1>
+    <p class="fonte" id="fonte">Obras ativas no CNO (Receita Federal) com 800 m² ou mais, iniciadas a partir de 2023, sem obras de infraestrutura.</p>
+  </header>
+
+  <section class="painel" aria-label="Filtros">
+    <div class="linha">
+      <div class="campo busca">
+        <label for="busca">Buscar</label>
+        <input id="busca" type="search" placeholder="Obra, construtora, CNPJ, bairro…" autocomplete="off">
+      </div>
+      <div class="campo">
+        <label for="municipio">Município</label>
+        <select id="municipio"><option value="">Todos</option></select>
+      </div>
+      <div class="campo">
+        <label for="destinacao">Tipo de obra</label>
+        <select id="destinacao"><option value="">Todos</option></select>
+      </div>
+      <div class="campo">
+        <label for="ordem">Ordenar por</label>
+        <select id="ordem">
+          <option value="prioridade">Momento de contato</option>
+          <option value="area">Maior área</option>
+          <option value="inicio">Início mais recente</option>
+          <option value="registro">Cadastro mais recente</option>
+        </select>
+      </div>
+    </div>
+    <div class="linha" style="justify-content: space-between;">
+      <div class="chips" id="chips" role="group" aria-label="Momento da obra"></div>
+      <label class="toggle" for="socnpj"><input id="socnpj" type="checkbox"> Só empresas (com CNPJ)</label>
+    </div>
+    <div class="legenda" id="legenda"></div>
+  </section>
+
+  <div class="resumo"><span><strong id="qtd" class="num">…</strong> <span id="qtd-rot">obras carregando</span></span><span id="hoje-rot"></span></div>
+
+  <div class="grade" id="grade"><p class="vazio">Carregando as obras…</p></div>
+  <button class="mais" id="mais" type="button" hidden>Mostrar mais</button>
+
+  <details class="apoio" id="como">
+    <summary>Como a fase da obra é estimada</summary>
+    <div class="corpo" id="como-corpo"></div>
+  </details>
+  <details class="apoio" id="excl">
+    <summary id="excl-tit">Obras retiradas como infraestrutura</summary>
+    <div class="corpo" style="max-width:none">
+      <p>Retiradas pelo nome da obra (pavimentação, drenagem, praça, ponte…) ou por terem só atividades de infraestrutura no cadastro. Se alguma interessar, avise para ajustar a regra.</p>
+      <div class="tabela"><table><thead><tr><th>Motivo</th><th>Obra</th><th>Responsável</th><th>Município</th><th>Área (m²)</th></tr></thead><tbody id="excl-corpo"></tbody></table></div>
+    </div>
+  </details>
+</div>
+
+<script>
+(function () {
+  const COR = { "Apresentação / especificação": "var(--accent)", "Cabos elétricos": "var(--cabos)", "Pisos e revestimentos": "var(--pisos)", "ASSA ABLOY": "var(--assa)" };
+  const CURTO = { "Apresentação / especificação": "Apresentação", "Cabos elétricos": "Cabos", "Pisos e revestimentos": "Pisos e revestimentos", "ASSA ABLOY": "ASSA ABLOY" };
+  const ESCALA_MAX = 130;   // a linha do tempo vai até 130% do prazo
+  const LOTE = 40;
+  const nf = new Intl.NumberFormat("pt-BR");
+  const $ = (id) => document.getElementById(id);
+  const sem = (s) => (s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+  const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const dataBR = (iso) => iso ? iso.slice(8, 10) + "/" + iso.slice(5, 7) + "/" + iso.slice(0, 4) : "–";
+
+  let META, OBRAS = [], filtradas = [], mostradas = 0, filtroJanela = "";
+  const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
+
+  function guardar() {
+    try { localStorage.setItem("radar-filtros", JSON.stringify({ b: $("busca").value, m: $("municipio").value, d: $("destinacao").value, o: $("ordem").value, c: $("socnpj").checked, j: filtroJanela })); } catch (e) {}
+  }
+  function lembrar() {
+    try { return JSON.parse(localStorage.getItem("radar-filtros") || "null"); } catch (e) { return null; }
+  }
+
+  function calcular(o) {
+    const ini = new Date(o.inicio + "T00:00:00");
+    o.meses = Math.max(0, (hoje - ini) / 86400000 / 30.44);
+    o.pct = 100 * o.meses / o.prazo;
+    o.fase = (META.fases.find((f) => o.pct < f.ate) || META.fases[META.fases.length - 1]).nome;
+    o.janelas = META.janelas.filter((j) => o.pct >= j.ini && o.pct < j.fim).map((j) => j.nome);
+    o.passou = o.pct >= 115;
+    o.busca = sem([o.obra, o.resp, o.cnpj, o.bairro, o.mun, o.end, o.vinc, o.cno, o.dests].join(" "));
+  }
+
+  function prioridade(a, b) {
+    const prodA = a.janelas.filter((j) => !j.startsWith("Apresenta")).length, prodB = b.janelas.filter((j) => !j.startsWith("Apresenta")).length;
+    return (a.passou - b.passou) || (prodB - prodA) || ((!a.janelas.length) - (!b.janelas.length)) ||
+      ((!a.cnpj) - (!b.cnpj)) || ((b.susp ? 0 : b.area || 0) - (a.susp ? 0 : a.area || 0));
+  }
+  const ORDENS = {
+    prioridade,
+    area: (a, b) => (b.susp ? 0 : b.area || 0) - (a.susp ? 0 : a.area || 0),
+    inicio: (a, b) => (b.inicio || "").localeCompare(a.inicio || ""),
+    registro: (a, b) => (b.registro || "").localeCompare(a.registro || ""),
+  };
+
+  function montarFiltros(salvo) {
+    const porMun = {}, porDest = {};
+    OBRAS.forEach((o) => { porMun[o.mun] = (porMun[o.mun] || 0) + 1; porDest[o.dest] = (porDest[o.dest] || 0) + 1; });
+    Object.entries(porMun).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).forEach(([m, n]) => $("municipio").add(new Option(`${m} (${n})`, m)));
+    Object.entries(porDest).sort((a, b) => b[1] - a[1]).forEach(([d, n]) => $("destinacao").add(new Option(`${d} (${n})`, d)));
+    $("legenda").innerHTML = META.janelas.map((j) => `<span><i style="--c:${COR[j.nome]}"></i>${esc(CURTO[j.nome])}: ${j.ini}–${j.fim}% do prazo</span>`).join("") +
+      `<span><i style="--c:var(--fg);width:3px;height:12px"></i>hoje</span>`;
+    if (salvo) {
+      $("busca").value = salvo.b || ""; $("ordem").value = salvo.o || "prioridade"; $("socnpj").checked = !!salvo.c;
+      if ([...$("municipio").options].some((x) => x.value === salvo.m)) $("municipio").value = salvo.m || "";
+      if ([...$("destinacao").options].some((x) => x.value === salvo.d)) $("destinacao").value = salvo.d || "";
+      filtroJanela = salvo.j || "";
+    }
+  }
+
+  function aplicar() {
+    const q = sem($("busca").value.trim()), m = $("municipio").value, d = $("destinacao").value, c = $("socnpj").checked;
+    const base = OBRAS.filter((o) => (!q || o.busca.includes(q)) && (!m || o.mun === m) && (!d || o.dest === d) && (!c || o.cnpj));
+    // chips com contagem sobre o recorte atual
+    const cont = { "": base.length, passou: base.filter((o) => o.passou).length };
+    META.janelas.forEach((j) => { cont[j.nome] = base.filter((o) => o.janelas.includes(j.nome)).length; });
+    const chips = [["", "Todas", "todas"], ...META.janelas.map((j) => [j.nome, CURTO[j.nome], ""]), ["passou", "Passou do prazo", "prazo"]];
+    $("chips").innerHTML = chips.map(([v, rot, cls]) => {
+      const cor = COR[v] ? `style="--c:${COR[v]}"` : "";
+      return `<button type="button" class="chip ${cls}" ${cor} data-v="${esc(v)}" aria-pressed="${filtroJanela === v}"><span class="dot"></span>${esc(rot)} <b>${nf.format(cont[v])}</b></button>`;
+    }).join("");
+    filtradas = base.filter((o) => !filtroJanela || (filtroJanela === "passou" ? o.passou : o.janelas.includes(filtroJanela)));
+    filtradas.sort(ORDENS[$("ordem").value] || prioridade);
+    $("qtd").textContent = nf.format(filtradas.length);
+    $("qtd-rot").textContent = filtradas.length === 1 ? "obra" : "obras";
+    mostradas = 0;
+    $("grade").innerHTML = "";
+    if (!filtradas.length) $("grade").innerHTML = `<p class="vazio">Nenhuma obra com esses filtros. Limpe a busca ou escolha "Todas".</p>`;
+    desenharMais();
+    guardar();
+  }
+
+  function trilho(o) {
+    const pos = (p) => (Math.min(p, ESCALA_MAX) / ESCALA_MAX * 100).toFixed(2) + "%";
+    const raias = META.janelas.map((j, i) =>
+      `<div class="raia" style="top:${i * 8}px"><i class="${o.janelas.includes(j.nome) ? "aberta" : ""}" style="--c:${COR[j.nome]};left:${pos(j.ini)};width:calc(${pos(j.fim)} - ${pos(j.ini)})"></i></div>`).join("");
+    return `<div class="trilho" aria-hidden="true">${raias}<div class="alem" style="left:${pos(100)}"></div><div class="hoje" style="left:${pos(o.pct)}"></div></div>
+      <div class="escala" aria-hidden="true"><span style="left:0">início</span><span style="left:${pos(50)}">metade</span><span style="left:${pos(100)}">fim previsto</span></div>`;
+  }
+
+  function ficha(o) {
+    const tags = [`<span class="tag">${esc(o.dest || "–")}</span>`, `<span class="tag">${esc(o.cat || "")}</span>`];
+    if (o.susp) tags.push(`<span class="tag alerta">área provavelmente digitada errada</span>`);
+    if (!o.cnpj) tags.push(`<span class="tag alerta">pessoa física</span>`);
+    const agora = o.janelas.length
+      ? `<span class="rot">Agora:</span>` + o.janelas.map((j) => `<span class="prod" style="--c:${COR[j]}">${esc(CURTO[j])}</span>`).join("")
+      : o.passou ? `<span class="rot">Já passou do prazo estimado. Vale confirmar se a obra terminou.</span>` : `<span class="rot">Fora das janelas de produto</span>`;
+    const resp = o.resp && o.resp !== o.obra ? `<span class="nome">${esc(o.resp)}</span>` : "";
+    const cnpj = o.cnpj ? `<span class="cnpj"><span class="mono">${esc(o.cnpj)}</span><button type="button" class="copiar" data-copiar="${esc(o.cnpj)}">Copiar CNPJ</button></span>` : "";
+    return `<article class="ficha">
+      <div class="topo"><div class="tags">${tags.join("")}</div><div class="area"><b>${o.area ? nf.format(o.area) : "–"}</b><small>m²</small></div></div>
+      <div style="display:grid;gap:6px;min-width:0"><h3>${esc(o.obra)}</h3><div class="resp">${resp}${cnpj}<span>${esc(o.qualif || "")}</span></div></div>
+      <div class="local"><span><strong>${esc(o.mun)}</strong>${o.bairro ? " · " + esc(o.bairro) : ""}</span><span class="end">${esc(o.end)}${o.cep ? " · CEP " + esc(o.cep) : ""}</span>
+        <a class="mapa" href="${esc(o.mapa)}" target="_blank" rel="noopener">Abrir no mapa ↗</a></div>
+      <div class="tempo">
+        <div class="cab"><span class="fase">${esc(o.fase)}</span><span class="meses">${nf.format(Math.round(o.meses))} de ~${nf.format(Math.round(o.prazo))} meses · ${nf.format(Math.round(o.pct))}%</span></div>
+        ${trilho(o)}
+        <div class="agora">${agora}</div>
+      </div>
+      ${o.vinc ? `<details class="vinc"><summary>Empresas ligadas à obra</summary><p>${esc(o.vinc)}</p></details>` : ""}
+      <div class="rodape"><span>Início ${dataBR(o.inicio)}</span><span>Cadastro ${dataBR(o.registro)}</span><span class="mono">CNO ${esc(o.cno)}</span></div>
+    </article>`;
+  }
+
+  function desenharMais() {
+    const lote = filtradas.slice(mostradas, mostradas + LOTE);
+    $("grade").insertAdjacentHTML("beforeend", lote.map(ficha).join(""));
+    mostradas += lote.length;
+    const falta = filtradas.length - mostradas;
+    $("mais").hidden = falta <= 0;
+    $("mais").textContent = `Mostrar mais ${nf.format(Math.min(LOTE, falta))} de ${nf.format(falta)}`;
+  }
+
+  function apoio() {
+    const j = META.janelas.map((x) => `<li><b>${esc(x.nome)}</b>: de ${x.ini}% a ${x.fim}% do prazo</li>`).join("");
+    let ant = 0;
+    const f = META.fases.map((x) => { const t = x.ate < 10000 ? `${ant}% a ${x.ate}%` : `acima de ${ant}%`; ant = x.ate; return `<li>${esc(x.nome)}: ${t}</li>`; }).join("");
+    $("como-corpo").innerHTML = `
+      <p>O cadastro da Receita não diz em que fase a obra está. A estimativa usa a <b>data de início</b> e um <b>prazo típico</b> que depende do tipo e do tamanho da obra. Exemplo: galpão de 1.500 m² leva cerca de 6 meses, prédio residencial de 8.000 m² cerca de 28 meses. Reforma conta 60% desse prazo.</p>
+      <p>% do prazo = meses desde o início ÷ prazo típico. A conta é refeita todo dia ao abrir a página.</p>
+      <p><b>Janelas de cada produto</b></p><ul style="margin:0">${j}</ul>
+      <p><b>Fases</b></p><ul style="margin:0">${f}</ul>
+      <p>São estimativas iniciais. Quando a fase real de uma obra conhecida não bater, avise para recalibrar os prazos.</p>`;
+  }
+
+  function excluidas(lista) {
+    $("excl-tit").textContent = `${nf.format(lista.length)} obras retiradas como infraestrutura`;
+    $("excl-corpo").innerHTML = lista.map((o) =>
+      `<tr><td>${esc(o.motivo)}</td><td>${esc(o.obra)}</td><td>${esc(o.resp)}</td><td>${esc(o.mun)}</td><td class="n">${o.area ? nf.format(o.area) : "–"}</td></tr>`).join("");
+  }
+
+  document.addEventListener("click", (ev) => {
+    const chip = ev.target.closest(".chip");
+    if (chip) { filtroJanela = chip.dataset.v; aplicar(); return; }
+    const btn = ev.target.closest("[data-copiar]");
+    if (btn) {
+      const txt = btn.dataset.copiar;
+      const ok = () => { btn.textContent = "Copiado"; setTimeout(() => (btn.textContent = "Copiar CNPJ"), 1500); };
+      const falhou = () => { const r = document.createRange(); r.selectNodeContents(btn.previousElementSibling); const s = getSelection(); s.removeAllRanges(); s.addRange(r); btn.textContent = "Selecionado"; };
+      try { navigator.clipboard.writeText(txt).then(ok, falhou); } catch (e) { falhou(); }
+    }
+  });
+  let t;
+  $("busca").addEventListener("input", () => { clearTimeout(t); t = setTimeout(aplicar, 180); });
+  ["municipio", "destinacao", "ordem", "socnpj"].forEach((id) => $(id).addEventListener("change", aplicar));
+  $("mais").addEventListener("click", desenharMais);
+
+  fetch("obras.json").then((r) => { if (!r.ok) throw new Error(r.status); return r.json(); }).then((dados) => {
+    META = dados.meta; OBRAS = dados.obras;
+    OBRAS.forEach(calcular);
+    $("fonte").textContent = `${nf.format(OBRAS.length)} obras ativas no CNO (Receita Federal, base de ${dataBR(META.data_ref)}) com ${nf.format(META.area_minima)} m² ou mais, iniciadas a partir de ${dataBR(META.inicio_minimo)}, sem obras de infraestrutura. ${nf.format(META.ativas_no_estado)} obras ativas no estado ao todo.`;
+    $("hoje-rot").textContent = `Fase calculada para hoje, ${hoje.toLocaleDateString("pt-BR")}`;
+    montarFiltros(lembrar());
+    apoio();
+    excluidas(dados.excluidas || []);
+    aplicar();
+  }).catch(() => {
+    $("grade").innerHTML = `<p class="vazio">Não foi possível carregar as obras. Recarregue a página.</p>`;
+    $("qtd").textContent = "0";
+  });
+})();
+</script>

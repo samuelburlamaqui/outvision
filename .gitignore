@@ -5,3 +5,5 @@ venv/
 *.duckdb
 *.parquet
 dados_brutos/
+# dados de obras (nomes, endereços): ficam fora do repositório público
+app/obras.json

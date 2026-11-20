@@ -12,7 +12,7 @@ import unicodedata
 UFS = ["PA"]
 AREA_MINIMA_M2 = 800
 AREA_SUSPEITA_M2 = 300_000  # acima disso quase sempre é erro de digitação
-ANOS_MAX_DESDE_INICIO = 4   # obras mais antigas que isso ficam de fora mesmo "ativas"
+INICIO_MINIMO = "2023-01-01"  # só obras que começaram a partir desta data
 SITUACOES_ACEITAS = ["02"]  # 02 = Ativa
 CATEGORIAS_EXCLUIDAS = ["Demolição"]
 
