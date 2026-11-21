@@ -137,9 +137,10 @@ FASES = [
 # apresentar a representação e tentar entrar na especificação (memorial descritivo).
 JANELAS = {
     "Apresentação / especificação": (0, 30),
-    "Cabos elétricos": (30, 65),
-    "Pisos e revestimentos": (50, 85),
-    "ASSA ABLOY": (70, 100),
+    "Vibra": (30, 65),          # fios e cabos: enfiação depois de tubulação e reboco
+    "Mohawk": (50, 85),         # pisos e revestimentos (Eliane): paredes e pisos
+    "Lorenzetti": (60, 95),     # louças, metais e chuveiros: depois dos revestimentos
+    "Assa Abloy": (70, 100),    # fechaduras, ferragens e portas: fim da obra
 }
 
 

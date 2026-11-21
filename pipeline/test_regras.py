@@ -63,7 +63,8 @@ def test_cnae():
 def test_fases():
     assert R.fase(10) == "Início / fundação"
     assert R.fase(80) == "Acabamento"
-    assert R.janelas_abertas(60) == ["Cabos elétricos", "Pisos e revestimentos"]
+    assert R.janelas_abertas(60) == ["Vibra", "Mohawk", "Lorenzetti"]
+    assert R.janelas_abertas(90) == ["Lorenzetti", "Assa Abloy"]
     assert R.duracao_meses("Galpão industrial", 1500, "Obra Nova") == 6
 
 
