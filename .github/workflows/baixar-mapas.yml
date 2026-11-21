@@ -2,8 +2,10 @@ name: baixar-mapas
 
 # Baixa do IBGE as malhas dos municípios do Pará e salva em dados/mapas/:
 # - shapefile oficial (PA_Municipios_<ano>.zip), para uso em programas de mapa (QGIS etc.)
-# - GeoJSON com nome, região intermediária e região imediata de cada município
+# - GeoJSON com nome, mesorregião, microrregião, região intermediária e imediata de cada município
 #   (versão detalhada e versão leve para o site)
+# - GeoJSON das 6 mesorregiões (Baixo Amazonas, Marajó, Metropolitana de Belém, Nordeste,
+#   Sudeste e Sudoeste Paraense)
 # Roda manualmente (aba Actions > baixar-mapas > Run workflow) ou quando este arquivo muda.
 
 on:
@@ -42,15 +44,21 @@ jobs:
           curl -fsSL --retry 3 --retry-delay 10 -o "$RUNNER_TEMP/detalhada.json" "$api/v3/malhas/estados/15?formato=application/vnd.geo%2Bjson&qualidade=intermediaria&intrarregiao=municipio"
           curl -fsSL --retry 3 --retry-delay 10 -o "$RUNNER_TEMP/leve.json" "$api/v3/malhas/estados/15?formato=application/vnd.geo%2Bjson&qualidade=minima&intrarregiao=municipio"
           curl -fsSL --retry 3 --retry-delay 10 -o "$RUNNER_TEMP/nomes.json" "$api/v1/localidades/estados/15/municipios"
+          curl -fsSL --retry 3 --retry-delay 10 -o "$RUNNER_TEMP/meso_detalhada.json" "$api/v3/malhas/estados/15?formato=application/vnd.geo%2Bjson&qualidade=intermediaria&intrarregiao=mesorregiao"
+          curl -fsSL --retry 3 --retry-delay 10 -o "$RUNNER_TEMP/meso_leve.json" "$api/v3/malhas/estados/15?formato=application/vnd.geo%2Bjson&qualidade=minima&intrarregiao=mesorregiao"
+          curl -fsSL --retry 3 --retry-delay 10 -o "$RUNNER_TEMP/meso_nomes.json" "$api/v1/localidades/estados/15/mesorregioes"
           python3 - "$RUNNER_TEMP" <<'PY'
           import json, sys
           tmp = sys.argv[1]
           nomes = {}
           for m in json.load(open(f"{tmp}/nomes.json", encoding="utf-8")):
               ri = (m.get("regiao-imediata") or {})
+              mi = (m.get("microrregiao") or {})
               nomes[str(m["id"])] = {
                   "codigo_ibge": str(m["id"]),
                   "nome": m["nome"],
+                  "mesorregiao": (mi.get("mesorregiao") or {}).get("nome"),
+                  "microrregiao": mi.get("nome"),
                   "regiao_imediata": ri.get("nome"),
                   "regiao_intermediaria": (ri.get("regiao-intermediaria") or {}).get("nome"),
               }
@@ -65,6 +73,15 @@ jobs:
               json.dump(g, open(destino, "w", encoding="utf-8"), ensure_ascii=False, separators=(",", ":"))
               sem = [f["properties"]["codigo_ibge"] for f in g["features"] if not f["properties"].get("nome")]
               print(f"{destino}: {len(g['features'])} municípios; sem nome: {sem}")
+          meso = {str(m["id"]): m["nome"] for m in json.load(open(f"{tmp}/meso_nomes.json", encoding="utf-8"))}
+          for origem, destino in (("meso_detalhada", "dados/mapas/pa_mesorregioes.geojson"), ("meso_leve", "site/mapas/pa_mesorregioes.geojson")):
+              g = json.load(open(f"{tmp}/{origem}.json", encoding="utf-8"))
+              for f in g["features"]:
+                  cod = str(f["properties"].get("codarea"))
+                  f["properties"] = {"codigo_ibge": cod, "nome": meso.get(cod)}
+                  f["geometry"]["coordinates"] = arred(f["geometry"]["coordinates"])
+              json.dump(g, open(destino, "w", encoding="utf-8"), ensure_ascii=False, separators=(",", ":"))
+              print(f"{destino}: {[f['properties']['nome'] for f in g['features']]}")
           PY
           ls -la dados/mapas site/mapas
 
