@@ -947,8 +947,10 @@
       <div class="resumo"><div class="modos" role="group" aria-label="Seção dos insights">
         <button type="button" data-insights-aba="demanda" aria-pressed="${I.aba === "demanda"}">Demanda prevista</button>
         <button type="button" data-insights-aba="mercado" aria-pressed="${I.aba === "mercado"}">Mercado</button>
+        <button type="button" data-insights-aba="mapa" aria-pressed="${I.aba === "mapa"}">Mapa</button>
       </div></div>
       <div id="insights-corpo" class="insights"></div>`;
+    if (I.aba === "mapa") return renderMapa();
     I.aba === "demanda" ? renderDemanda() : renderMercado();
   }
 
@@ -1068,6 +1070,16 @@
       if (v === "construtoras") { E.filtros.construtoras = { ...(E.filtros.construtoras || {}), busca: "", mun: "", dest: "", papel: "", salvas: false, ordem: "janela", soJanela: true }; location.hash = "#construtoras"; }
       return true;
     }
+    const mmo = t.closest("[data-mapa-modo]");
+    if (mmo) { I.mp.modo = mmo.dataset.mapaModo; renderMapa(); return true; }
+    if (t.closest("[data-mapa-todos]")) { I.mp.todos = !I.mp.todos; renderMapa(); return true; }
+    const mg = t.closest("[data-mapa-grupo]");
+    if (mg) {
+      const nome = mg.dataset.mapaGrupo, lista = (I.mapaGrupos && I.mapaGrupos.get(nome)) || [];
+      const m2 = lista.reduce((s, o) => s + (o.susp ? 0 : o.area || 0), 0);
+      abrirListaObras(`${nome}: ${nf.format(lista.length)} obras no radar`, `${nf.format(Math.round(m2))} m² somados · ordenadas pela maior área`, lista);
+      return true;
+    }
     const mm = t.closest("[data-m]");
     if (mm) { const [chave, v] = mm.dataset.m.split(":"); I.m[chave] = v; renderMercado(); return true; }
     const cid = t.closest("[data-cidade]");
@@ -1081,6 +1093,173 @@
     if (t.id === "m-cidade") { I.m.cidade = t.value; return renderMercado(); }
     if (t.id === "m-grupo") { I.m.grupo = t.value; return renderMercado(); }
     if (t.id === "m-infra") { I.m.infra = t.checked; return renderMercado(); }
+    if (t.id === "mp-dest") { I.mp.dest = t.value; return renderMapa(); }
+    if (t.id === "mp-area") { I.mp.area = t.value; return renderMapa(); }
+  }
+
+  // ---------- mapa: obras do radar por município ou por mesorregião
+  const APELIDOS_MUN = { "ELDORADO DOS CARAJAS": "ELDORADO DO CARAJAS", "SANTA ISABEL DO PARA": "SANTA IZABEL DO PARA" };
+  const normMun = (s) => {
+    const n = (s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toUpperCase().replace(/[^A-Z ]/g, " ").replace(/\s+/g, " ").trim();
+    return APELIDOS_MUN[n] || n;
+  };
+  I.mp = { modo: "municipio", dest: "", area: "", todos: false };
+  async function carregarGeo() {
+    if (I.geo) return I.geo;
+    const [mun, meso] = await Promise.all(["mapas/pa_municipios.geojson", "mapas/pa_mesorregioes.geojson"].map((u) => fetch(u).then((r) => { if (!r.ok) throw new Error(u + " " + r.status); return r.json(); })));
+    // projeção simples: o Pará fica perto do Equador
+    let minx = 180, maxx = -180, miny = 90, maxy = -90;
+    const polys = (g) => (g.type === "MultiPolygon" ? g.coordinates : [g.coordinates]);
+    meso.features.forEach((f) => polys(f.geometry).forEach((p) => p[0].forEach(([x, y]) => { minx = Math.min(minx, x); maxx = Math.max(maxx, x); miny = Math.min(miny, y); maxy = Math.max(maxy, y); })));
+    const kx = Math.cos(((miny + maxy) / 2) * Math.PI / 180), W = 1000, esc = W / ((maxx - minx) * kx), H = (maxy - miny) * esc;
+    const P = ([x, y]) => [(x - minx) * kx * esc, (maxy - y) * esc];
+    const forma = (f) => {
+      let d = "", melhor = null, maiorArea = -1;
+      polys(f.geometry).forEach((p) => p.forEach((anel, i) => {
+        const pts = anel.map(P);
+        d += "M" + pts.map((q) => q[0].toFixed(1) + "," + q[1].toFixed(1)).join("L") + "Z";
+        if (i) return;
+        let a = 0, cx = 0, cy = 0;
+        for (let k = 0; k < pts.length - 1; k++) { const c = pts[k][0] * pts[k + 1][1] - pts[k + 1][0] * pts[k][1]; a += c; cx += (pts[k][0] + pts[k + 1][0]) * c; cy += (pts[k][1] + pts[k + 1][1]) * c; }
+        if (Math.abs(a) > maiorArea && a) { maiorArea = Math.abs(a); melhor = [cx / (3 * a), cy / (3 * a)]; }
+      }));
+      return { d, centro: melhor };
+    };
+    I.geo = {
+      W, H,
+      mun: mun.features.map((f) => ({ ...f.properties, chave: normMun(f.properties.nome), ...forma(f) })),
+      meso: meso.features.map((f) => ({ ...f.properties, ...forma(f) })),
+    };
+    return I.geo;
+  }
+  async function renderMapa() {
+    const corpo = $("insights-corpo");
+    corpo.innerHTML = `<p class="vazio">Carregando o mapa…</p>`;
+    let geo;
+    try { geo = await carregarGeo(); }
+    catch (e) { console.error(e); corpo.innerHTML = `<p class="vazio">Não foi possível carregar o mapa (${esc(e.message || e)}). Recarregue a página.</p>`; return; }
+    const mp = I.mp, r = radar();
+    const porDest = {};
+    r.forEach((o) => { porDest[o.destinacao || "Não informado"] = (porDest[o.destinacao || "Não informado"] || 0) + 1; });
+    const obras = r.filter((o) => (!mp.dest || (o.destinacao || "Não informado") === mp.dest) && (!mp.area || (o.area || 0) >= Number(mp.area)));
+    const munPorChave = new Map(geo.mun.map((m) => [m.chave, m]));
+    const grupos = new Map();   // nome do município ou da região -> obras
+    let fora = 0;
+    obras.forEach((o) => {
+      const m = munPorChave.get(normMun(o.municipio));
+      if (!m) { fora++; return; }
+      const k = mp.modo === "regiao" ? m.mesorregiao : m.nome;
+      if (!grupos.has(k)) grupos.set(k, []);
+      grupos.get(k).push(o);
+    });
+    I.mapaGrupos = grupos;
+    const n = (k) => (grupos.get(k) || []).length;
+    const max = Math.max(1, ...[...grupos.values()].map((l) => l.length));
+    let svg = `<svg class="mapa-svg" viewBox="0 0 ${geo.W} ${geo.H.toFixed(0)}" role="img" aria-label="Obras do radar ${mp.modo === "regiao" ? "por mesorregião" : "por município"} no Pará">`;
+    if (mp.modo === "regiao") {
+      const passo = (v) => (v ? Math.min(5, Math.floor((v / max) * 6 - 1e-9)) : -1);
+      geo.meso.forEach((g) => {
+        const v = n(g.nome), p = passo(v);
+        svg += `<path d="${g.d}" class="area-meso" fill="${p < 0 ? "var(--surface-2)" : `var(--seq-${p})`}" data-mapa-grupo="${esc(g.nome)}" tabindex="0"><title>${esc(g.nome)}: ${nf.format(v)} obras</title></path>`;
+      });
+      geo.meso.forEach((g) => {
+        if (!g.centro) return;
+        const [cx, cy] = g.centro, metro = g.nome === "Metropolitana de Belém";
+        const escuro = !metro && passo(n(g.nome)) >= 4 ? " sobre-escuro" : "";
+        const linhas = metro ? ["Metropolitana", "de Belém"] : g.nome.replace(" Paraense", "|Paraense").split("|");
+        const [ox, oy] = { "Nordeste Paraense": [-50, 45] }[g.nome] || [0, 0];
+        const tx = metro ? Math.min(cx + 30, geo.W - 100) : cx + ox, ty = metro ? cy - 150 : cy + oy - 14 * linhas.length;
+        if (metro) svg += `<line x1="${cx.toFixed(1)}" y1="${(cy - 8).toFixed(1)}" x2="${tx.toFixed(1)}" y2="${(ty + 64).toFixed(1)}" class="guia"/>`;
+        svg += `<text x="${tx.toFixed(1)}" y="${ty.toFixed(1)}" text-anchor="middle" class="rot-mapa forte${escuro}">${linhas.map((l, i) => `<tspan x="${tx.toFixed(1)}" dy="${i ? "1.1em" : 0}">${esc(l)}</tspan>`).join("")}</text>`
+          + `<text x="${tx.toFixed(1)}" y="${(ty + 28 * linhas.length + 12).toFixed(1)}" text-anchor="middle" class="rot-mapa num-mapa${escuro}">${nf.format(n(g.nome))}</text>`;
+      });
+    } else {
+      geo.mun.forEach((m) => { svg += `<path d="${m.d}" class="area-mun"><title>${esc(m.nome)}: ${nf.format(n(m.nome))} obras</title></path>`; });
+      geo.meso.forEach((g) => { svg += `<path d="${g.d}" class="borda-meso"/>`; });
+      const rmax = 40, raio = (v) => rmax * Math.sqrt(v / max);
+      const comObras = geo.mun.filter((m) => n(m.nome) > 0 && m.centro).sort((a, b) => n(b.nome) - n(a.nome));
+      comObras.forEach((m) => {
+        const [cx, cy] = m.centro;
+        svg += `<circle cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="${Math.max(3, raio(n(m.nome))).toFixed(1)}" class="bolha" data-mapa-grupo="${esc(m.nome)}" tabindex="0"><title>${esc(m.nome)}: ${nf.format(n(m.nome))} obras</title></circle>`;
+      });
+      // legenda das bolhas (no canto sudeste, que é vazio) — dentro do SVG para ter a mesma escala do mapa
+      const refs = [max, max / 4, max / 16].map((v) => Math.max(1, Math.round(v))).filter((v, i, a) => a.indexOf(v) === i);
+      const lx = 840, lb = geo.H - 24, LEG = [790, lb - 2 * rmax - 52, geo.W, geo.H];
+      svg += `<g class="leg-mapa" aria-hidden="true"><text x="${LEG[0]}" y="${lb - 2 * rmax - 22}" class="rot-mapa leg-tit">Nº de obras</text>`;
+      refs.forEach((v) => {
+        const rr = Math.max(3, raio(v)), topo = lb - 2 * rr;
+        svg += `<circle cx="${lx}" cy="${(lb - rr).toFixed(1)}" r="${rr.toFixed(1)}" class="bolha leg"/>`
+          + `<line x1="${lx}" y1="${topo.toFixed(1)}" x2="${lx + rmax + 14}" y2="${topo.toFixed(1)}" class="guia"/>`
+          + `<text x="${lx + rmax + 20}" y="${(topo + 7).toFixed(1)}" class="rot-mapa">${nf.format(v)}</text>`;
+      });
+      svg += `</g>`;
+      // nomes das maiores: ao lado da bolha, sem cobrir outro nome nem outra bolha;
+      // se não couber (aglomerado de Belém), vai para o mar ao nordeste com uma linha-guia
+      const bolhas = comObras.map((m) => ({ nome: m.nome, cx: m.centro[0], cy: m.centro[1], r: Math.max(3, raio(n(m.nome))) })).filter((b) => b.r >= 5);
+      const toca = (c, b) => { const dx = b.cx - Math.max(c[0], Math.min(b.cx, c[2])), dy = b.cy - Math.max(c[1], Math.min(b.cy, c[3])); return dx * dx + dy * dy < b.r * b.r; };
+      const cruza = (a, c) => !(a[2] < c[0] || a[0] > c[2] || a[3] < c[1] || a[1] > c[3]);
+      const caixas = [LEG], noMar = [];
+      const rotulo = (m) => `${esc(m.nome)} <tspan class="fraco-mapa">${nf.format(n(m.nome))}</tspan>`;
+      comObras.slice(0, 30).forEach((m) => {
+        if (caixas.length > 12) return;
+        const [cx, cy] = m.centro, rr = Math.max(3, raio(n(m.nome)));
+        const txt = `${m.nome} ${nf.format(n(m.nome))}`, w = txt.length * 11.6, h = 26;
+        const opcoes = [[cx + rr + 5, cy + 7, "start"], [cx - rr - 5, cy + 7, "end"], [cx, cy - rr - 8, "middle"], [cx, cy + rr + 24, "middle"]];
+        for (const [x, y, anc] of opcoes) {
+          const x0 = anc === "start" ? x : anc === "end" ? x - w : x - w / 2;
+          const caixa = [x0, y - 19, x0 + w, y - 19 + h];
+          if (caixa[0] < 0 || caixa[2] > geo.W || caixa[1] < 0 || caixa[3] > geo.H) continue;
+          if (caixas.some((c) => cruza(caixa, c)) || bolhas.some((b) => b.nome !== m.nome && toca(caixa, b))) continue;
+          caixas.push(caixa);
+          svg += `<text x="${x.toFixed(1)}" y="${y.toFixed(1)}" text-anchor="${anc}" class="rot-mapa rot-mun">${rotulo(m)}</text>`;
+          return;
+        }
+        if (cx > geo.W * 0.6 && cy < geo.H * 0.4 && noMar.length < 6) { noMar.push({ m, cx, cy, rr, w }); caixas.push([0, 0, 0, 0]); }
+      });
+      // nomes que foram para o mar: coluna à esquerda das bolhas, alinhada à direita; a bolha mais a leste
+      // fica no alto, assim as linhas-guia não se cruzam nem passam por cima dos nomes
+      if (noMar.length) {
+        const x = Math.max(...noMar.map((c) => c.w)) + 8 > Math.min(...noMar.map((c) => c.cx - c.rr)) - 30 ? geo.W - 8 : Math.min(...noMar.map((c) => c.cx - c.rr)) - 30;
+        const base = Math.min(230, Math.min(...noMar.map((c) => c.cy - c.rr)) - 40);
+        noMar.sort((a, b) => b.cx - a.cx).forEach((c, k) => {
+          const y = base - 34 * (noMar.length - 1 - k);
+          svg += `<polyline points="${c.cx.toFixed(1)},${(c.cy - c.rr).toFixed(1)} ${(x + 6).toFixed(1)},${(y - 7).toFixed(1)}" class="guia rot-mun"/>`
+            + `<text x="${x.toFixed(1)}" y="${y.toFixed(1)}" text-anchor="end" class="rot-mapa rot-mun">${rotulo(c.m)}</text>`;
+        });
+      }
+    }
+    svg += `</svg>`;
+    const legenda = mp.modo === "regiao"
+      ? `<div class="escala-viz"><span>menos</span>${[0, 1, 2, 3, 4, 5].map((i) => `<i style="background:var(--seq-${i})"></i>`).join("")}<span>mais obras</span></div>` : "";
+    // lista ordenada
+    const itens = [...grupos.entries()].map(([k, l]) => ({ k, v: l.length, meso: mp.modo === "regiao" ? "" : (geo.mun.find((m) => m.nome === k) || {}).mesorregiao }))
+      .sort((a, b) => b.v - a.v);
+    const total = obras.length - fora;
+    const mostrar = mp.modo === "regiao" || mp.todos ? itens : itens.slice(0, 15);
+    const lista = mostrar.map((x) => `<button type="button" class="ranking-item" data-mapa-grupo="${esc(x.k)}">
+        <span class="rk-nome">${esc(x.k)}${x.meso ? `<small>${esc(x.meso)}</small>` : ""}</span>
+        <span class="rk-barra"><i style="width:${((x.v / max) * 100).toFixed(1)}%"></i></span>
+        <span class="rk-num">${nf.format(x.v)}${mp.modo === "regiao" ? `<small>${Math.round((x.v / Math.max(1, total)) * 100)}%</small>` : ""}</span></button>`).join("");
+    corpo.innerHTML = `
+      <section class="painel">
+        <div class="linha">
+          <div class="campo"><span class="rotulo">Ver por</span><div class="modos" role="group" aria-label="Ver por">
+            <button type="button" data-mapa-modo="municipio" aria-pressed="${mp.modo === "municipio"}">Município</button>
+            <button type="button" data-mapa-modo="regiao" aria-pressed="${mp.modo === "regiao"}">Região</button></div></div>
+          <div class="campo"><label for="mp-dest">Tipo de obra</label><select id="mp-dest"><option value="">Todos</option>${Object.entries(porDest).sort((a, b) => b[1] - a[1]).map(([k, v]) => `<option value="${esc(k)}" ${mp.dest === k ? "selected" : ""}>${esc(k)} (${v})</option>`).join("")}</select></div>
+          <div class="campo"><label for="mp-area">Área mínima</label><select id="mp-area">${AREAS.map(([v, rot]) => `<option value="${v}" ${mp.area === v ? "selected" : ""}>${rot}</option>`).join("")}</select></div>
+        </div>
+      </section>
+      <section class="cartao-viz">
+        <div class="cab-viz"><h2>Obras no radar ${mp.modo === "regiao" ? "por região" : "por município"}</h2>
+          <p>${nf.format(total)} obras ativas iniciadas desde 2023. ${mp.modo === "regiao" ? "Regiões = mesorregiões do IBGE." : "Contornos mais escuros = mesorregiões do IBGE."} Toque ${mp.modo === "regiao" ? "numa região" : "numa bolha"} ou na lista para ver as obras.</p></div>
+        <div class="mapa-layout">
+          <div class="mapa-caixa">${svg}${legenda}</div>
+          <div class="ranking"><h3>${mp.modo === "regiao" ? "Regiões" : "Municípios com mais obras"}</h3>${lista || '<p class="fraco">Nenhuma obra com esses filtros.</p>'}
+            ${mp.modo === "municipio" && itens.length > 15 ? `<button type="button" class="btn mais" data-mapa-todos>${mp.todos ? "Mostrar só os 15 primeiros" : `Mostrar os ${itens.length} municípios`}</button>` : ""}</div>
+        </div>
+        <p class="rodape-viz">Malhas: IBGE.${fora ? ` ${nf.format(fora)} obra(s) com município não localizado no mapa.` : ""}</p>
+      </section>`;
   }
 
   // ---------- mercado
