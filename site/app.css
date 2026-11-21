@@ -30,6 +30,11 @@
   --ouro: #b7791f;
   --ouro-bg: #fdf6e3;
   --ouro-borda: #e7c77a;
+  /* séries do Mercado: paleta categórica validada (ordem fixa) */
+  --serie-1: #2a78d6; --serie-2: #eb6834; --serie-3: #1baf7a; --serie-4: #eda100; --serie-5: #e87ba4; --serie-6: #008300;
+  /* escala da demanda: pistache, do claro (pouco) ao escuro (muito) */
+  --seq-0: #eef5e6; --seq-1: #d5e8be; --seq-2: #b3d48f; --seq-3: #8cbc62; --seq-4: #5f9636; --seq-5: #3f6b17;
+  --seq-texto-forte: #ffffff;
   --font-marca: "Sora", "Inter", system-ui, sans-serif;
   --font-display: "Barlow Condensed", "Arial Narrow", system-ui, sans-serif;
   --font-body: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
@@ -45,6 +50,9 @@
     --cabos: #e48a4b; --pisos: #d38bc7; --assa: #7fa8e8; --warn: #f0b35a; --warn-soft: #3a2d18;
     --erro: #f4a582; --erro-soft: #3a2218;
     --ouro: #f2c14e; --ouro-bg: #2f2a1a; --ouro-borda: #6b5a2a;
+    --serie-1: #3987e5; --serie-2: #d95926; --serie-3: #199e70; --serie-4: #c98500; --serie-5: #d55181; --serie-6: #0ca30c;
+    --seq-0: #25301e; --seq-1: #2f4523; --seq-2: #3d5f29; --seq-3: #537f33; --seq-4: #78a64d; --seq-5: #a6d483;
+    --seq-texto-forte: #172010;
     --st-nova: #a3ac98; --st-contato: #7fa8e8; --st-visita: #d38bc7; --st-proposta: #e48a4b; --st-fechada: #b5dc93; --st-perdida: #f4a582;
     color-scheme: dark;
   }
@@ -372,3 +380,62 @@ body.com-painel #conteudo { max-width: none; margin-right: calc(var(--painel-w) 
 .tipo-mini .ico { width: 14px; height: 14px; }
 .obra-mini .t { font-weight: 600; overflow-wrap: anywhere; }
 .rodape-mini { display: flex; flex-wrap: wrap; gap: 4px 6px; align-items: center; font-size: 13px; }
+
+/* ---------- insights ---------- */
+.insights { display: grid; gap: 18px; transition: opacity 150ms; }
+.insights.recarregando { opacity: 0.55; }
+.kpis { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
+.kpi { all: unset; cursor: pointer; display: grid; gap: 4px; padding: 16px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); }
+.kpi:hover { background: var(--surface-2); }
+.kpi:focus-visible { outline: 2px solid var(--marca-texto); outline-offset: 2px; }
+.kpi .rot { font-size: 14px; color: var(--muted); }
+.kpi b { font-size: 34px; font-weight: 600; line-height: 1.1; color: var(--fg); }
+.kpi .sub { font-size: 13px; color: var(--marca-texto); font-weight: 500; }
+.cartao-viz { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; display: grid; gap: 14px; min-width: 0; }
+.cab-viz { display: grid; gap: 6px; }
+.cab-viz h2 { font-size: 18px; font-weight: 600; }
+.cab-viz p, .nota { margin: 0; font-size: 14px; color: var(--muted); max-width: 80ch; }
+.cab-viz .modos { justify-self: start; }
+.tabela-viz { overflow-x: auto; }
+table.matriz { border-collapse: separate; border-spacing: 4px; width: 100%; min-width: 640px; }
+table.matriz th { font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); text-align: center; padding: 4px; border: 0; }
+table.matriz th[scope="row"] { text-align: left; font-size: 14px; text-transform: none; letter-spacing: 0; color: var(--fg); font-weight: 600; white-space: nowrap; }
+table.matriz th[scope="row"] .dot, .t-viz .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 8px; vertical-align: middle; }
+table.matriz td { padding: 0; border: 0; }
+.celula { all: unset; cursor: pointer; box-sizing: border-box; width: 100%; min-height: 64px; display: grid; place-content: center; text-align: center; gap: 2px;
+  border-radius: 8px; background: var(--surface-2); color: var(--fg); padding: 8px 4px; }
+.celula b { font-size: 20px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.celula small { font-size: 12px; opacity: 0.85; }
+.celula.escura { color: var(--seq-texto-forte); }
+.celula:hover { outline: 2px solid var(--marca-texto); outline-offset: 1px; }
+.celula:focus-visible { outline: 2px solid var(--marca-texto); outline-offset: 1px; }
+td.vazia { text-align: center; color: var(--muted); }
+.escala-viz { display: flex; align-items: center; gap: 4px; font-size: 12px; color: var(--muted); }
+.escala-viz i { width: 22px; height: 10px; border-radius: 3px; display: inline-block; }
+.legenda-viz { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 14px; }
+.legenda-viz span { display: inline-flex; align-items: center; gap: 6px; }
+.legenda-viz i { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+.legenda-viz .parcial-chave { background: var(--muted); opacity: 0.38; }
+.grafico { position: relative; overflow-x: auto; }
+.grafico svg { display: block; }
+.grafico .eixo { font-size: 11px; fill: var(--muted); font-variant-numeric: tabular-nums; }
+.grafico .alvo { cursor: pointer; outline: none; }
+.grafico .alvo.ativo, .grafico .alvo:focus-visible { fill: var(--fg); fill-opacity: 0.06; }
+.dica { position: absolute; z-index: 2; width: 180px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px;
+  box-shadow: 0 6px 18px rgb(0 0 0 / 0.12); font-size: 13px; display: grid; gap: 3px; pointer-events: none; }
+.dica-tit { color: var(--muted); font-size: 12px; }
+.dica-tot { font-weight: 600; font-size: 15px; }
+.dica-linha { display: flex; align-items: center; gap: 6px; color: var(--muted); }
+.dica-linha i { width: 10px; height: 3px; border-radius: 2px; display: inline-block; }
+.dica-linha b { color: var(--fg); font-variant-numeric: tabular-nums; }
+table.t-viz { min-width: 520px; }
+.t-viz td, .t-viz th { padding: 8px 10px; }
+.t-viz tr.total td { font-weight: 600; border-top: 2px solid var(--line); }
+.t-viz tr.sel td { background: var(--marca-suave); }
+.var { font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.var.sobe { color: var(--marca-texto); }
+.var.desce { color: var(--erro); }
+.link-cidade { all: unset; cursor: pointer; color: var(--marca-texto); font-weight: 600; }
+.link-cidade:focus-visible { outline: 2px solid var(--marca-texto); outline-offset: 2px; }
+.spark { display: block; }
+.chip.especial { --c: var(--marca-texto); background: var(--marca-suave); border-color: var(--marca-texto); color: var(--marca-texto); font-weight: 600; }

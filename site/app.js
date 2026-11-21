@@ -12,7 +12,7 @@
   ];
   const FASES = [[15, "Início / fundação"], [45, "Estrutura"], [70, "Alvenaria e instalações"], [95, "Acabamento"],
     [115, "Finalização"], [Infinity, "Provavelmente concluída"]];
-  const RECORTE = { situacao: "02", inicioMin: "2023-01-01", areaMin: 800 }; // o que o admin vê em "Todas as obras"
+  // "Todas as obras" (admin) = view obras_radar no banco: ativas, iniciadas desde 2023, qualquer área, sem infraestrutura
   const STATUS = [["nova", "Nova"], ["contato", "Contato feito"], ["visita", "Visita"], ["proposta", "Proposta"],
     ["fechada", "Fechada"], ["perdida", "Perdida"]];
   const STATUS_NOME = Object.fromEntries(STATUS);
@@ -155,8 +155,12 @@
 
     let obras;
     if (ehAdmin()) {
-      obras = await paginar(() => sb.from("obras").select(COLS).eq("situacao", RECORTE.situacao)
-        .gte("data_inicio", RECORTE.inicioMin).gte("area_principal", RECORTE.areaMin).is("motivo_infra", null).order("cno"));
+      try {
+        obras = await paginar(() => sb.from("obras_radar").select(COLS).order("cno"));
+      } catch (e) { // banco ainda sem a view: mesmo recorte direto na tabela
+        obras = await paginar(() => sb.from("obras").select(COLS).eq("situacao", "02").gte("data_inicio", "2023-01-01")
+          .gt("area_principal", 0).is("motivo_infra", null).order("cno"));
+      }
       obras.forEach((o) => (o.recorte = true));
       const tem = new Set(obras.map((o) => o.cno));
       const faltam = [...new Set(enc.map((e) => e.cno))].filter((c) => !tem.has(c));
@@ -181,10 +185,16 @@
   async function carregarEmpresas() {
     const sb = E.sb, emBlocos = (lista, n) => Array.from({ length: Math.ceil(lista.length / n) }, (_, i) => lista.slice(i * n, i * n + n));
     try {
-      const cnos = [...E.obras.keys()];
-      const partes = await Promise.all(emBlocos(cnos, 150).map((b) =>
-        sb.from("obra_empresas").select("cno,cnpj,cnpj_basico,papel,qualificacao,ativo").in("cno", b)));
+      const CL = "cno,cnpj,cnpj_basico,papel,qualificacao,ativo";
       const links = [];
+      let fora = [...E.obras.keys()];
+      if (ehAdmin()) {
+        try {
+          links.push(...await paginar(() => sb.from("obra_empresas_radar").select(CL).order("cno").order("cnpj").order("papel").order("qualificacao")));
+          fora = [...E.obras.values()].filter((o) => !o.recorte).map((o) => o.cno);
+        } catch (e) { /* sem a view: busca por blocos */ }
+      }
+      const partes = await Promise.all(emBlocos(fora, 150).map((b) => sb.from("obra_empresas").select(CL).in("cno", b)));
       partes.forEach(({ data, error }) => { if (error) throw error; links.push(...data); });
       const basicos = [...new Set(links.map((l) => l.cnpj_basico))];
       const [emps, salvas] = await Promise.all([
@@ -268,8 +278,9 @@
   function rota() {
     if (!E.eu) return;
     let v = (location.hash || "").replace("#", "");
-    if (!["todas", "minhas", "construtoras", "equipe"].includes(v) || (!ehAdmin() && ["todas", "equipe"].includes(v))) v = ehAdmin() ? "todas" : "minhas";
+    if (!["todas", "minhas", "construtoras", "insights", "equipe"].includes(v) || (!ehAdmin() && ["todas", "insights", "equipe"].includes(v))) v = ehAdmin() ? "todas" : "minhas";
     E.vista = v;
+    if (location.hash.replace("#", "") !== v) history.replaceState(null, "", "#" + v);
     renderAbas();
     renderVista();
   }
@@ -280,14 +291,15 @@
     if (ehAdmin()) abas.push(["todas", "Todas as obras", [...E.obras.values()].filter((o) => o.recorte).length]);
     abas.push(["minhas", "Minhas obras", minhas]);
     abas.push(["construtoras", "Construtoras", E.construtoras.size]);
+    if (ehAdmin()) abas.push(["insights", "Insights", null]);
     if (ehAdmin()) abas.push(["equipe", "Equipe", E.perfis.length]);
     $("abas").innerHTML = abas.map(([id, rot, n]) =>
-      `<a href="#${id}" ${E.vista === id ? 'aria-current="page"' : ""}>${esc(rot)} <span class="cont">${nf.format(n)}</span></a>`).join("");
+      `<a href="#${id}" ${E.vista === id ? 'aria-current="page"' : ""}>${esc(rot)}${n == null ? "" : ` <span class="cont">${nf.format(n)}</span>`}</a>`).join("");
   }
 
   // ------------------------------------------------------------ listas de obras
   function filtrosPadrao(v) {
-    return { busca: "", mun: "", dest: "", janela: "", enc: "", status: "", salvas: false, ordem: v === "minhas" ? "proxima" : "prioridade" };
+    return { busca: "", mun: "", dest: "", janela: "", enc: "", status: "", salvas: false, area: "", especial: "", ordem: v === "minhas" ? "proxima" : "prioridade" };
   }
   function baseDaVista() {
     const todas = [...E.obras.values()];
@@ -298,6 +310,7 @@
     const c = $("conteudo");
     if (E.vista === "equipe") return renderEquipe();
     if (E.vista === "construtoras") return renderConstrutoras();
+    if (E.vista === "insights") return renderInsights();
     const f = (E.filtros[E.vista] = E.filtros[E.vista] || filtrosPadrao(E.vista));
     const base = baseDaVista();
     const porMun = {}, porDest = {};
@@ -321,6 +334,7 @@
           <div class="campo largo"><label for="f-busca">Buscar</label><input id="f-busca" type="search" value="${esc(f.busca)}" placeholder="Obra, construtora, CNPJ, bairro…" autocomplete="off"></div>
           <div class="campo"><label for="f-mun">Município</label><select id="f-mun"><option value="">Todos</option>${opt(porMun, f.mun, titulo)}</select></div>
           <div class="campo"><label for="f-dest">Tipo de obra</label><select id="f-dest"><option value="">Todos</option>${opt(porDest, f.dest)}</select></div>
+          <div class="campo"><label for="f-area">Área mínima</label><select id="f-area">${AREAS.map(([v, r]) => `<option value="${v}" ${String(f.area) === v ? "selected" : ""}>${r}</option>`).join("")}</select></div>
           ${filtroEnc}
           <div class="campo"><label for="f-ordem">Ordenar por</label><select id="f-ordem">${ordens.map(([k, r]) => `<option value="${k}" ${f.ordem === k ? "selected" : ""}>${r}</option>`).join("")}</select></div>
         </div>
@@ -345,6 +359,7 @@
     const q = sem(f.busca.trim());
     return baseDaVista().filter((o) => (!q || o.busca.includes(q)) && (!f.mun || o.municipio === f.mun) &&
       (!f.dest || (o.destinacao || "Não informado") === f.dest) && (!f.salvas || deEmpresaSalva(o.cno)) &&
+      (!f.area || (o.area || 0) >= Number(f.area)) && (!f.especial || (ESPECIAIS[f.especial] || {}).teste(o)) &&
       (!f.enc || (f.enc === "sem" ? !encDe(o.cno).length : f.enc === "com" ? encDe(o.cno).length > 0 : encDe(o.cno).some((e) => e.vendedor_id === f.enc))));
   }
   // desenha os botões de filtro com as contagens atuais; devolve o teste do botão escolhido
@@ -368,6 +383,8 @@
     const f = E.filtros[E.vista];
     const base = baseFiltrada();
     const passa = renderChips(base);
+    if (f.especial && ESPECIAIS[f.especial]) $("chips").insertAdjacentHTML("afterbegin",
+      `<button type="button" class="chip especial" data-tirar-especial aria-label="Tirar o filtro ${esc(ESPECIAIS[f.especial].rotulo)}">${esc(ESPECIAIS[f.especial].rotulo)} ×</button>`);
     E.lista = base.filter(passa).sort(ORDENS[f.ordem] || ORDENS.prioridade);
     $("qtd").textContent = nf.format(E.lista.length);
     $("qtd-rot").textContent = E.lista.length === 1 ? "obra" : "obras";
@@ -614,6 +631,7 @@
     dlg.innerHTML = `
       <div class="cab-dialog"><h3>${esc(o.tNome)}</h3><button class="btn discreto" type="button" data-fechar aria-label="Fechar">${ico("fechar")}</button></div>
       ${voltar && E.construtoras.get(voltar) ? `<button class="voltar" type="button" data-abrir-empresa="${esc(voltar)}">← ${esc(E.construtoras.get(voltar).nome)}</button>` : ""}
+      ${voltar === "lista" && I.ultimaLista ? `<button class="voltar" type="button" data-voltar-lista="1">← ${esc(I.ultimaLista.titulo)}</button>` : ""}
       ${h.cidade}
       <div class="conteudo">
         ${h.tipos}${h.resp}${h.local}${blocoTempo(o)}
@@ -633,6 +651,7 @@
     E.vistaDialog = false;
     dlg.dataset.cno = cno;
     dlg.dataset.basico = "";
+    dlg.dataset.lista = "";
     dlg.dataset.voltar = voltar || "";
     abrirPainel(dlg);
     marcarSelecionada(cno);
@@ -759,11 +778,11 @@
   function aplicarConstrutoras() {
     const f = E.filtros.construtoras, q = sem(f.busca.trim());
     const base = [...E.construtoras.values()].filter((x) => (!q || x.busca.includes(q)) && (!f.mun || x.cidades.includes(f.mun)) &&
-      (!f.dest || x.tipos.has(f.dest)) && (!f.papel || x.papeis.has(f.papel)));
+      (!f.dest || x.tipos.has(f.dest)) && (!f.papel || x.papeis.has(f.papel)) && (!f.soJanela || x.naJanela > 0));
     const nSalvas = base.filter((x) => E.salvas.has(x.basico)).length;
     $("chips").innerHTML = `
       <button type="button" class="chip todas" data-filtro-salvas="0" aria-pressed="${!f.salvas}"><span class="dot"></span>Todas <b>${nf.format(base.length)}</b></button>
-      <button type="button" class="chip estrela-chip" data-filtro-salvas="1" aria-pressed="${f.salvas}"><span aria-hidden="true">★</span> Minhas construtoras <b>${nf.format(nSalvas)}</b></button>`;
+      <button type="button" class="chip estrela-chip" data-filtro-salvas="1" aria-pressed="${f.salvas}"><span aria-hidden="true">★</span> Minhas construtoras <b>${nf.format(nSalvas)}</b></button>${f.soJanela ? `<button type="button" class="chip especial" data-tirar-sojanela>Com obra na janela agora ×</button>` : ""}`;
     E.lista = base.filter((x) => !f.salvas || E.salvas.has(x.basico)).sort(ORDENS_EMP[f.ordem] || ORDENS_EMP.janela);
     $("qtd").textContent = nf.format(E.lista.length);
     $("qtd-rot").textContent = E.lista.length === 1 ? "construtora" : "construtoras";
@@ -885,10 +904,393 @@
       </div>`;
     dlg.dataset.cno = "";
     dlg.dataset.voltar = "";
+    dlg.dataset.lista = "";
     dlg.dataset.basico = basico;
     abrirPainel(dlg);
     marcarSelecionada(basico, "basico");
   }
+
+  // ------------------------------------------------------------ insights (só admin)
+  const AREAS = [["", "Qualquer"], ["100", "100 m² ou mais"], ["300", "300 m² ou mais"], ["800", "800 m² ou mais"], ["2000", "2.000 m² ou mais"], ["5000", "5.000 m² ou mais"]];
+  const DIA = 86400000;
+  const ESPECIAIS = {
+    novas30: { rotulo: "Cadastradas nos últimos 30 dias", teste: (o) => o.data_registro && new Date(o.data_registro + "T00:00:00") >= new Date(HOJE - 30 * DIA) },
+  };
+  const PRODUTOS = JANELAS.filter((j) => j.ini > 0);
+  const MES_CURTO = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
+  // tipos do Mercado, na ordem fixa da paleta validada (cores --serie-1 a 6)
+  const GRUPOS = [
+    { id: "casa", nome: "Casa", de: ["Residencial unifamiliar"] },
+    { id: "predio", nome: "Prédio residencial", de: ["Residencial multifamiliar"] },
+    { id: "comercial", nome: "Comercial", de: ["Comercial salas e lojas"] },
+    { id: "galpao", nome: "Galpão", de: ["Galpão industrial"] },
+    { id: "popular", nome: "Habitação popular", de: ["Casa popular", "Conjunto habitacional popular"] },
+    { id: "outros", nome: "Outros", de: ["Edifício de Garagens", "Sem área informada"] },
+  ].map((g, i) => ({ ...g, cor: `var(--serie-${i + 1})` }));
+  const grupoDe = (tipo) => (GRUPOS.find((g) => g.de.includes(tipo)) || GRUPOS[GRUPOS.length - 1]).id;
+  const MERC_DESDE = "2020-01-01";
+  const compacto = (v) => (v >= 1e6 ? nf.format(Math.round(v / 1e5) / 10) + " mi" : v >= 1e4 ? nf.format(Math.round(v / 1e3)) + " mil" : nf.format(Math.round(v)));
+
+  const I = { aba: "demanda", d: { mun: "", dest: "", area: "", metrica: "obras" },
+    m: { gran: "trimestre", metrica: "obras", cidade: "", grupo: "", infra: false, ordemCid: "volume", todasCid: false },
+    cacheTipo: new Map(), cacheCid: new Map(), celulas: new Map(), carregando: false };
+
+  function entrada(o, j) {
+    if (!o.data_inicio) return null;
+    return new Date(new Date(o.data_inicio + "T00:00:00").getTime() + o.prazo * 30.44 * DIA * j.ini / 100);
+  }
+  const radar = () => [...E.obras.values()].filter((o) => o.recorte);
+
+  function renderInsights() {
+    $("conteudo").innerHTML = `
+      <div class="resumo"><div class="modos" role="group" aria-label="Seção dos insights">
+        <button type="button" data-insights-aba="demanda" aria-pressed="${I.aba === "demanda"}">Demanda prevista</button>
+        <button type="button" data-insights-aba="mercado" aria-pressed="${I.aba === "mercado"}">Mercado</button>
+      </div></div>
+      <div id="insights-corpo" class="insights"></div>`;
+    I.aba === "demanda" ? renderDemanda() : renderMercado();
+  }
+
+  // ---------- demanda prevista
+  function renderDemanda() {
+    const r = radar();
+    const porMun = {}, porDest = {};
+    r.forEach((o) => { porMun[o.municipio] = (porMun[o.municipio] || 0) + 1; porDest[o.destinacao || "Não informado"] = (porDest[o.destinacao || "Não informado"] || 0) + 1; });
+    const opt = (obj, sel, fmt) => Object.entries(obj).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+      .map(([k, n]) => `<option value="${esc(k)}" ${k === sel ? "selected" : ""}>${esc(fmt ? fmt(k) : k)} (${n})</option>`).join("");
+    const d = I.d;
+    // números do topo
+    const em90 = new Date(HOJE.getTime() + 90 * DIA);
+    const novas = r.filter(ESPECIAIS.novas30.teste).length;
+    const entram = r.filter((o) => PRODUTOS.some((j) => { const e = entrada(o, j); return e && e > HOJE && e <= em90; }));
+    const cJanela = [...E.construtoras.values()].filter((c) => c.naJanela > 0).length;
+    I.entram90 = entram;
+    $("insights-corpo").innerHTML = `
+      <div class="kpis">
+        <button type="button" class="kpi" data-kpi="radar"><span class="rot">Obras no radar</span><b>${nf.format(r.length)}</b><span class="sub">ativas, iniciadas desde 2023</span></button>
+        <button type="button" class="kpi" data-kpi="novas"><span class="rot">Cadastradas nos últimos 30 dias</span><b>${nf.format(novas)}</b><span class="sub">ver a lista</span></button>
+        <button type="button" class="kpi" data-kpi="entram"><span class="rot">Entram numa janela em 90 dias</span><b>${nf.format(entram.length)}</b><span class="sub">cabos, pisos ou ASSA ABLOY</span></button>
+        <button type="button" class="kpi" data-kpi="construtoras"><span class="rot">Construtoras com obra na janela</span><b>${nf.format(cJanela)}</b><span class="sub">ver construtoras</span></button>
+      </div>
+      <section class="painel">
+        <div class="linha">
+          <div class="campo"><label for="d-mun">Município</label><select id="d-mun"><option value="">Todos</option>${opt(porMun, d.mun, titulo)}</select></div>
+          <div class="campo"><label for="d-dest">Tipo de obra</label><select id="d-dest"><option value="">Todos</option>${opt(porDest, d.dest)}</select></div>
+          <div class="campo"><label for="d-area">Área mínima</label><select id="d-area">${AREAS.map(([v, rot]) => `<option value="${v}" ${d.area === v ? "selected" : ""}>${rot}</option>`).join("")}</select></div>
+          <div class="campo"><span class="rotulo">Contar</span><div class="modos" role="group" aria-label="Contar por">
+            <button type="button" data-d-metrica="obras" aria-pressed="${d.metrica === "obras"}">Obras</button>
+            <button type="button" data-d-metrica="m2" aria-pressed="${d.metrica === "m2"}">m²</button></div></div>
+        </div>
+      </section>
+      <section class="cartao-viz">
+        <div class="cab-viz"><h2>Demanda prevista por produto</h2>
+          <p>Quantas obras do radar entram na janela de cada produto nos próximos meses, pelo prazo estimado de cada obra. Toque num número para ver as obras.</p></div>
+        <div class="tabela-viz" id="matriz"></div>
+        <div class="escala-viz" aria-hidden="true"><span>menos</span>${[0, 1, 2, 3, 4, 5].map((i) => `<i style="background:var(--seq-${i})"></i>`).join("")}<span>mais</span></div>
+      </section>`;
+    desenharMatriz();
+  }
+  function desenharMatriz() {
+    const d = I.d;
+    const obras = radar().filter((o) => (!d.mun || o.municipio === d.mun) && (!d.dest || (o.destinacao || "Não informado") === d.dest) && (!d.area || (o.area || 0) >= Number(d.area)));
+    const meses = Array.from({ length: 6 }, (_, i) => new Date(HOJE.getFullYear(), HOJE.getMonth() + i, 1));
+    const fim = new Date(HOJE.getFullYear(), HOJE.getMonth() + 6, 1);
+    I.celulas = new Map();
+    const pega = (k) => { if (!I.celulas.has(k)) I.celulas.set(k, []); return I.celulas.get(k); };
+    obras.forEach((o) => PRODUTOS.forEach((j) => {
+      if (o.janelas.includes(j)) return pega(j.nome + "|agora").push(o);
+      const e = entrada(o, j);
+      if (!e || e <= HOJE || e >= fim) return;
+      const i = (e.getFullYear() - HOJE.getFullYear()) * 12 + e.getMonth() - HOJE.getMonth();
+      pega(j.nome + "|" + i).push(o);
+    }));
+    const valor = (lista) => (d.metrica === "m2" ? lista.reduce((s, o) => s + (o.susp ? 0 : o.area || 0), 0) : lista.length);
+    let max = 0;
+    PRODUTOS.forEach((j) => meses.forEach((_, i) => { max = Math.max(max, valor(I.celulas.get(j.nome + "|" + i) || [])); }));
+    const passo = (v) => (v <= 0 || !max ? -1 : Math.min(5, Math.floor((v / max) * 6 - 1e-9)));
+    const celula = (j, chave, destaque) => {
+      const lista = I.celulas.get(j.nome + "|" + chave) || [];
+      const v = valor(lista), m2 = lista.reduce((s, o) => s + (o.susp ? 0 : o.area || 0), 0);
+      const outro = d.metrica === "m2" ? `${nf.format(lista.length)} obra${lista.length === 1 ? "" : "s"}` : `${compacto(m2)} m²`;
+      if (!lista.length) return `<td class="vazia">–</td>`;
+      const p = destaque ? -1 : passo(v);
+      return `<td><button type="button" class="celula ${p >= 4 ? "escura" : ""}" style="${p >= 0 ? `background:var(--seq-${p})` : ""}" data-celula="${esc(j.nome + "|" + chave)}">
+        <b>${d.metrica === "m2" ? compacto(v) : nf.format(v)}</b><small>${esc(outro)}</small></button></td>`;
+    };
+    $("matriz").innerHTML = `<table class="matriz">
+      <thead><tr><th scope="col">Produto</th><th scope="col">Já na janela</th>${meses.map((m, i) => `<th scope="col">${i === 0 ? "Resto de " : ""}${MES_CURTO[m.getMonth()]}/${String(m.getFullYear()).slice(2)}</th>`).join("")}</tr></thead>
+      <tbody>${PRODUTOS.map((j) => `<tr><th scope="row"><span class="dot" style="background:${j.cor}"></span>${esc(j.curto)}</th>${celula(j, "agora", true)}${meses.map((_, i) => celula(j, i, false)).join("")}</tr>`).join("")}</tbody>
+    </table>`;
+  }
+
+  // lista de obras no painel lateral (a partir de um número dos insights)
+  function abrirListaObras(titulo, sub, obras, dataDe) {
+    I.ultimaLista = { titulo, sub, obras, dataDe };
+    const ordenadas = [...obras].sort((a, b) => (dataDe ? (dataDe(a) || 0) - (dataDe(b) || 0) : 0) || areaOk(b) - areaOk(a));
+    const dlg = $("detalhe");
+    dlg.innerHTML = `
+      <div class="cab-dialog"><h3>${esc(titulo)}</h3><button class="btn discreto" type="button" data-fechar aria-label="Fechar">${ico("fechar")}</button></div>
+      <div class="conteudo"><p class="fraco" style="margin:0">${esc(sub)}</p>
+        <div class="obras-mini">${ordenadas.map((o) => linhaMini(o).replace('data-abrir-obra=', `data-voltar-lista="1" data-abrir-obra=`)
+          .replace('<span class="t">', dataDe && dataDe(o) ? `<span class="fraco">entra por volta de ${dataDe(o).toLocaleDateString("pt-BR")}</span><span class="t">` : '<span class="t">')).join("")}</div></div>`;
+    dlg.dataset.cno = ""; dlg.dataset.basico = ""; dlg.dataset.voltar = "";
+    dlg.dataset.lista = "1";
+    abrirPainel(dlg);
+  }
+  function cliqueInsights(t) {
+    const aba = t.closest("[data-insights-aba]");
+    if (aba) { I.aba = aba.dataset.insightsAba; renderInsights(); return true; }
+    const dm = t.closest("[data-d-metrica]");
+    if (dm) { I.d.metrica = dm.dataset.dMetrica; renderDemanda(); return true; }
+    const cel = t.closest("[data-celula]");
+    if (cel) {
+      const [nome, chave] = cel.dataset.celula.split("|");
+      const j = PRODUTOS.find((x) => x.nome === nome);
+      const lista = I.celulas.get(cel.dataset.celula) || [];
+      const m2 = lista.reduce((s, o) => s + (o.susp ? 0 : o.area || 0), 0);
+      if (chave === "agora") abrirListaObras(`${j.curto}: já na janela`, `${nf.format(lista.length)} obras · ${nf.format(Math.round(m2))} m²`, lista);
+      else {
+        const m = new Date(HOJE.getFullYear(), HOJE.getMonth() + Number(chave), 1);
+        abrirListaObras(`${j.curto}: entram em ${MES_CURTO[m.getMonth()]}/${m.getFullYear()}`, `${nf.format(lista.length)} obras · ${nf.format(Math.round(m2))} m² · data estimada pelo prazo típico`, lista, (o) => entrada(o, j));
+      }
+      return true;
+    }
+    const k = t.closest("[data-kpi]");
+    if (k) {
+      const v = k.dataset.kpi;
+      if (v === "radar") { E.filtros.todas = filtrosPadrao("todas"); location.hash = "#todas"; }
+      if (v === "novas") { E.filtros.todas = { ...filtrosPadrao("todas"), especial: "novas30", ordem: "registro" }; location.hash = "#todas"; }
+      if (v === "entram") {
+        const prox = (o) => PRODUTOS.map((j) => entrada(o, j)).filter((e) => e && e > HOJE).sort((a, b) => a - b)[0];
+        abrirListaObras("Entram numa janela em 90 dias", `${nf.format(I.entram90.length)} obras · primeira janela de produto que se abre em cada uma`, I.entram90, prox);
+      }
+      if (v === "construtoras") { E.filtros.construtoras = { ...(E.filtros.construtoras || {}), busca: "", mun: "", dest: "", papel: "", salvas: false, ordem: "janela", soJanela: true }; location.hash = "#construtoras"; }
+      return true;
+    }
+    const mm = t.closest("[data-m]");
+    if (mm) { const [chave, v] = mm.dataset.m.split(":"); I.m[chave] = v; renderMercado(); return true; }
+    const cid = t.closest("[data-cidade]");
+    if (cid) { I.m.cidade = I.m.cidade === cid.dataset.cidade ? "" : cid.dataset.cidade; renderMercado(); window.scrollTo({ top: 0, behavior: "smooth" }); return true; }
+    if (t.closest("[data-todas-cidades]")) { I.m.todasCid = !I.m.todasCid; renderMercado(); return true; }
+    return false;
+  }
+  function mudouInsights(t) {
+    const mapaD = { "d-mun": "mun", "d-dest": "dest", "d-area": "area" };
+    if (mapaD[t.id]) { I.d[mapaD[t.id]] = t.value; return desenharMatriz(); }
+    if (t.id === "m-cidade") { I.m.cidade = t.value; return renderMercado(); }
+    if (t.id === "m-grupo") { I.m.grupo = t.value; return renderMercado(); }
+    if (t.id === "m-infra") { I.m.infra = t.checked; return renderMercado(); }
+  }
+
+  // ---------- mercado
+  async function rpcTudo(nome, args) {
+    const out = [];
+    for (let i = 0; ; i += PAGINA) {
+      const { data, error } = await E.sb.rpc(nome, args).range(i, i + PAGINA - 1);
+      if (error) throw error;
+      out.push(...data);
+      if (data.length < PAGINA) break;
+    }
+    return out;
+  }
+  async function dadosMercado() {
+    const kT = I.m.cidade || "*", kC = I.m.grupo || "*";
+    if (!I.cacheTipo.has(kT)) I.cacheTipo.set(kT, await rpcTudo("mercado_por_tipo", { p_desde: MERC_DESDE, p_municipio: I.m.cidade || null }));
+    if (!I.cacheCid.has(kC)) {
+      const tipos = I.m.grupo ? GRUPOS.find((g) => g.id === I.m.grupo).de : [null];
+      const partes = await Promise.all(tipos.map((t) => rpcTudo("mercado_por_cidade", { p_desde: MERC_DESDE, p_tipo: t })));
+      I.cacheCid.set(kC, partes.flat());
+    }
+    return { tipo: I.cacheTipo.get(kT), cid: I.cacheCid.get(kC) };
+  }
+  // períodos: chave e rótulo para mês, trimestre ou ano
+  function periodoDe(dataIso, gran) {
+    const a = Number(dataIso.slice(0, 4)), m = Number(dataIso.slice(5, 7)) - 1;
+    if (gran === "ano") return { k: String(a), ini: new Date(a, 0, 1), fim: new Date(a + 1, 0, 1), rot: String(a) };
+    if (gran === "mes") return { k: dataIso.slice(0, 7), ini: new Date(a, m, 1), fim: new Date(a, m + 1, 1), rot: `${MES_CURTO[m]}/${String(a).slice(2)}` };
+    const t = Math.floor(m / 3);
+    return { k: `${a}-T${t + 1}`, ini: new Date(a, t * 3, 1), fim: new Date(a, t * 3 + 3, 1), rot: `${t + 1}º tri ${a}` };
+  }
+  function listaPeriodos(gran) {
+    const out = [];
+    let d = new Date(2020, 0, 1);
+    while (d <= HOJE) {
+      const p = periodoDe(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`, gran);
+      out.push(p);
+      d = p.fim;
+    }
+    return out;
+  }
+  // a obra é cadastrada no CNO, em média, 1 a 2 meses depois de começar: períodos recentes vêm incompletos
+  const CORTE_PARCIAL = new Date(HOJE.getFullYear(), HOJE.getMonth() - 3, 1);
+
+  async function renderMercado() {
+    const m = I.m;
+    const corpo = $("insights-corpo");
+    if (!corpo.querySelector("#viz-mercado")) corpo.innerHTML = `<p class="vazio">Carregando os dados do mercado…</p>`;
+    else corpo.classList.add("recarregando");
+    let dados;
+    try { dados = await dadosMercado(); }
+    catch (e) { console.error(e); corpo.innerHTML = `<p class="vazio">Não foi possível carregar o mercado (${esc(e.message || e)}). Recarregue a página.</p>`; return; }
+    corpo.classList.remove("recarregando");
+    const val = (r) => (m.metrica === "m2" ? Number(r.m2) || 0 : r.obras);
+    const ok = (r) => (m.infra || !r.infra);
+    // ---- série por tipo
+    const periodos = listaPeriodos(m.gran);
+    const idx = new Map(periodos.map((p, i) => [p.k, i]));
+    const serie = GRUPOS.map(() => periodos.map(() => 0));
+    dados.tipo.filter(ok).forEach((r) => {
+      const g = grupoDe(r.tipo);
+      if (m.grupo && g !== m.grupo) return;
+      const i = idx.get(periodoDe(r.mes, m.gran).k);
+      if (i != null) serie[GRUPOS.findIndex((x) => x.id === g)][i] += val(r);
+    });
+    // ---- janelas de 12 meses completos (sem o atraso de cadastro)
+    const fimAtual = CORTE_PARCIAL, iniAtual = new Date(fimAtual.getFullYear() - 1, fimAtual.getMonth(), 1), iniAnt = new Date(fimAtual.getFullYear() - 2, fimAtual.getMonth(), 1);
+    const janela = (dIso) => { const d = new Date(dIso + "T00:00:00"); return d >= iniAtual && d < fimAtual ? "atual" : d >= iniAnt && d < iniAtual ? "ant" : null; };
+    const porGrupo = GRUPOS.map(() => ({ atual: 0, ant: 0 }));
+    dados.tipo.filter(ok).forEach((r) => { const w = janela(r.mes); if (!w) return; porGrupo[GRUPOS.findIndex((x) => x.id === grupoDe(r.tipo))][w] += val(r); });
+    const rotJan = (a, b) => `${MES_CURTO[a.getMonth()]}/${a.getFullYear()}–${MES_CURTO[new Date(b - DIA).getMonth()]}/${new Date(b - DIA).getFullYear()}`;
+    // ---- cidades
+    const cidades = new Map();
+    const trimestres = listaPeriodos("trimestre").filter((p) => p.fim <= CORTE_PARCIAL);
+    const tIdx = new Map(trimestres.map((p, i) => [p.k, i]));
+    dados.cid.filter(ok).forEach((r) => {
+      let c = cidades.get(r.municipio);
+      if (!c) { c = { nome: r.municipio, atual: 0, ant: 0, total: 0, tri: trimestres.map(() => 0) }; cidades.set(r.municipio, c); }
+      const v = val(r);
+      c.total += v;
+      const ti = tIdx.get(periodoDe(r.trimestre, "trimestre").k);
+      if (ti != null) c.tri[ti] += v;
+      // trimestre inteiro dentro da janela?
+      const ini = new Date(r.trimestre + "T00:00:00");
+      if (ini >= iniAtual && ini < fimAtual) c.atual += v; else if (ini >= iniAnt && ini < iniAtual) c.ant += v;
+    });
+    let lista = [...cidades.values()].filter((c) => c.atual + c.ant > 0);
+    const minAnt = m.metrica === "m2" ? 5000 : 10;
+    if (m.ordemCid === "crescimento") lista = lista.filter((c) => c.ant >= minAnt).sort((a, b) => (b.atual / b.ant) - (a.atual / a.ant));
+    else lista.sort((a, b) => b.atual - a.atual);
+    const todasCid = [...cidades.values()].sort((a, b) => b.total - a.total);
+    const mostrar = m.todasCid ? lista : lista.slice(0, 15);
+    const variacao = (a, b) => {
+      if (!b) return a ? `<span class="var sobe">novo</span>` : `<span class="fraco">–</span>`;
+      const p = Math.round(((a - b) / b) * 100);
+      return p === 0 ? `<span class="var">0%</span>` : `<span class="var ${p > 0 ? "sobe" : "desce"}">${p > 0 ? "▲ +" : "▼ "}${nf.format(p)}%</span>`;
+    };
+    const fmtV = (v) => (m.metrica === "m2" ? compacto(v) + " m²" : nf.format(v));
+    const soma = (campo) => porGrupo.reduce((acc, x, i) => acc + (!m.grupo || GRUPOS[i].id === m.grupo ? x[campo] : 0), 0);
+    const unidade = m.metrica === "m2" ? "m²" : "obras";
+    corpo.innerHTML = `
+      <section class="painel">
+        <div class="linha">
+          <div class="campo"><span class="rotulo">Período</span><div class="modos" role="group" aria-label="Período">
+            ${[["mes", "Mês"], ["trimestre", "Trimestre"], ["ano", "Ano"]].map(([k, r]) => `<button type="button" data-m="gran:${k}" aria-pressed="${m.gran === k}">${r}</button>`).join("")}</div></div>
+          <div class="campo"><span class="rotulo">Contar</span><div class="modos" role="group" aria-label="Contar por">
+            <button type="button" data-m="metrica:obras" aria-pressed="${m.metrica === "obras"}">Obras</button><button type="button" data-m="metrica:m2" aria-pressed="${m.metrica === "m2"}">m²</button></div></div>
+          <div class="campo"><label for="m-cidade">Município</label><select id="m-cidade"><option value="">Todo o Pará</option>${todasCid.map((c) => `<option value="${esc(c.nome)}" ${m.cidade === c.nome ? "selected" : ""}>${esc(titulo(c.nome))}</option>`).join("")}</select></div>
+          <div class="campo"><label for="m-grupo">Tipo de obra</label><select id="m-grupo"><option value="">Todos</option>${GRUPOS.map((g) => `<option value="${g.id}" ${m.grupo === g.id ? "selected" : ""}>${g.nome}</option>`).join("")}</select></div>
+          <label class="toggle" for="m-infra"><input id="m-infra" type="checkbox" ${m.infra ? "checked" : ""}> Incluir infraestrutura</label>
+        </div>
+      </section>
+      <section class="cartao-viz" id="viz-mercado">
+        <div class="cab-viz"><h2>Obras que começaram ${m.cidade ? "em " + esc(titulo(m.cidade)) : "no Pará"}, por tipo</h2>
+          <p>Todas as obras, de qualquer tamanho e situação, desde 2020, pela data de início. Sem regularizações de obras antigas.</p></div>
+        <div class="legenda-viz">${GRUPOS.filter((g) => !m.grupo || g.id === m.grupo).map((g) => `<span><i style="background:${g.cor}"></i>${esc(g.nome)}</span>`).join("")}
+          <span class="fraco"><i class="parcial-chave"></i>período incompleto</span></div>
+        <div class="grafico" id="grafico"></div>
+        <p class="nota">Os períodos mais recentes aparecem mais claros porque estão incompletos: a obra costuma ser cadastrada na Receita 1 a 2 meses depois de começar.</p>
+      </section>
+      <section class="cartao-viz">
+        <div class="cab-viz"><h2>Por tipo: últimos 12 meses completos</h2><p>${rotJan(iniAtual, fimAtual)} comparado com ${rotJan(iniAnt, iniAtual)}.</p></div>
+        <div class="tabela"><table class="t-viz"><thead><tr><th>Tipo</th><th class="n">Últimos 12 meses</th><th class="n">12 meses anteriores</th><th class="n">Variação</th></tr></thead>
+          <tbody>${GRUPOS.map((g, i) => (m.grupo && g.id !== m.grupo ? "" : `<tr><td><span class="dot" style="background:${g.cor}"></span>${esc(g.nome)}</td><td class="n">${fmtV(porGrupo[i].atual)}</td><td class="n">${fmtV(porGrupo[i].ant)}</td><td class="n">${variacao(porGrupo[i].atual, porGrupo[i].ant)}</td></tr>`)).join("")}
+          <tr class="total"><td>Total</td><td class="n">${fmtV(soma("atual"))}</td><td class="n">${fmtV(soma("ant"))}</td><td class="n">${variacao(soma("atual"), soma("ant"))}</td></tr></tbody></table></div>
+      </section>
+      <section class="cartao-viz">
+        <div class="cab-viz"><h2>Cidades${m.grupo ? " · " + esc(GRUPOS.find((g) => g.id === m.grupo).nome) : ""}</h2>
+          <p>${unidade === "m²" ? "m² de obras iniciadas" : "Obras iniciadas"} nos últimos 12 meses completos, contra os 12 anteriores. Toque numa cidade para ver o gráfico dela.</p>
+          <div class="modos" role="group" aria-label="Ordenar cidades"><button type="button" data-m="ordemCid:volume" aria-pressed="${m.ordemCid === "volume"}">Mais obras</button><button type="button" data-m="ordemCid:crescimento" aria-pressed="${m.ordemCid === "crescimento"}">Mais crescimento</button></div></div>
+        <div class="tabela"><table class="t-viz"><thead><tr><th>Cidade</th><th class="n">Últimos 12 meses</th><th class="n">Anteriores</th><th class="n">Variação</th><th>Desde 2020 (por trimestre)</th></tr></thead>
+          <tbody>${mostrar.map((c) => `<tr class="${m.cidade === c.nome ? "sel" : ""}"><td><button type="button" class="link-cidade" data-cidade="${esc(c.nome)}">${esc(titulo(c.nome))}</button></td><td class="n">${fmtV(c.atual)}</td><td class="n">${fmtV(c.ant)}</td><td class="n">${variacao(c.atual, c.ant)}</td><td>${sparkline(c.tri)}</td></tr>`).join("") || `<tr><td colspan="5" class="fraco">Nenhuma cidade com volume suficiente para comparar.</td></tr>`}</tbody></table></div>
+        ${lista.length > 15 ? `<button type="button" class="btn mais" data-todas-cidades>${m.todasCid ? "Mostrar só as 15 primeiras" : `Mostrar todas as ${nf.format(lista.length)} cidades`}</button>` : ""}
+        ${m.ordemCid === "crescimento" ? `<p class="nota">Só cidades com pelo menos ${fmtV(minAnt)} nos 12 meses anteriores, para não exagerar o crescimento de quem partiu de quase zero.</p>` : ""}
+      </section>`;
+    desenharColunas($("grafico"), periodos, serie, m);
+  }
+  function sparkline(vals) {
+    const w = 120, h = 28, max = Math.max(1, ...vals);
+    const pts = vals.map((v, i) => [vals.length > 1 ? (i / (vals.length - 1)) * (w - 6) + 3 : w / 2, h - 3 - (v / max) * (h - 6)]);
+    const ult = pts[pts.length - 1];
+    return `<svg class="spark" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" aria-hidden="true"><polyline points="${pts.map((p) => p.map((x) => x.toFixed(1)).join(",")).join(" ")}" fill="none" stroke="var(--muted)" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>${ult ? `<circle cx="${ult[0].toFixed(1)}" cy="${ult[1].toFixed(1)}" r="3" fill="var(--marca-texto)"/>` : ""}</svg>`;
+  }
+  // colunas empilhadas por tipo, com dica ao tocar/passar o dedo
+  function desenharColunas(alvo, periodos, serie, m) {
+    const largura = Math.max(320, alvo.clientWidth || 600), altura = 260, mt = 16, mb = 34, ml = 52, mr = 8;
+    const ativos = GRUPOS.map((g, i) => i).filter((i) => !m.grupo || GRUPOS[i].id === m.grupo);
+    const totais = periodos.map((_, p) => ativos.reduce((s, i) => s + serie[i][p], 0));
+    const bruto = Math.max(1, ...totais);
+    const mag = Math.pow(10, Math.floor(Math.log10(bruto)));
+    const passoY = [1, 2, 2.5, 5, 10].map((x) => x * mag / 4).find((x) => bruto / x <= 5) || mag;
+    const maxY = Math.ceil(bruto / passoY) * passoY;
+    const ph = altura - mt - mb, pw = largura - ml - mr;
+    const banda = pw / periodos.length, bw = Math.max(2, Math.min(24, banda * 0.7));
+    const y = (v) => mt + ph - (v / maxY) * ph;
+    let svg = `<svg width="${largura}" height="${altura}" viewBox="0 0 ${largura} ${altura}" role="img" aria-label="Obras iniciadas por período e tipo, desde 2020">`;
+    for (let v = 0; v <= maxY + 1e-9; v += passoY) {
+      svg += `<line x1="${ml}" x2="${largura - mr}" y1="${y(v).toFixed(1)}" y2="${y(v).toFixed(1)}" stroke="var(--line)" stroke-width="1"/>`;
+      svg += `<text x="${ml - 6}" y="${(y(v) + 4).toFixed(1)}" text-anchor="end" class="eixo">${m.metrica === "m2" ? compacto(v) : nf.format(v)}</text>`;
+    }
+    periodos.forEach((p, pi) => {
+      const x = ml + pi * banda + (banda - bw) / 2;
+      const parcial = p.fim > CORTE_PARCIAL;
+      let base = 0;
+      const segs = ativos.filter((i) => serie[i][pi] > 0);
+      segs.forEach((i, si) => {
+        const v = serie[i][pi], y0 = y(base), y1 = y(base + v);
+        const topo = si === segs.length - 1;
+        const hgt = Math.max(0, y0 - y1 - (topo ? 0 : 2));
+        const r = topo ? Math.min(4, bw / 2, hgt) : 0;
+        const yt = y0 - hgt;
+        svg += r > 0
+          ? `<path d="M${x.toFixed(1)},${y0.toFixed(1)} V${(yt + r).toFixed(1)} Q${x.toFixed(1)},${yt.toFixed(1)} ${(x + r).toFixed(1)},${yt.toFixed(1)} H${(x + bw - r).toFixed(1)} Q${(x + bw).toFixed(1)},${yt.toFixed(1)} ${(x + bw).toFixed(1)},${(yt + r).toFixed(1)} V${y0.toFixed(1)} Z" fill="${GRUPOS[i].cor}" ${parcial ? 'opacity="0.38"' : ""}/>`
+          : `<rect x="${x.toFixed(1)}" y="${yt.toFixed(1)}" width="${bw.toFixed(1)}" height="${hgt.toFixed(1)}" fill="${GRUPOS[i].cor}" ${parcial ? 'opacity="0.38"' : ""}/>`;
+        base += v;
+      });
+      // rótulos do eixo: o ano no começo de cada ano
+      const mostraAno = m.gran === "ano" || p.ini.getMonth() === 0;
+      if (mostraAno) svg += `<text x="${(ml + pi * banda + (m.gran === "ano" ? banda / 2 : 0)).toFixed(1)}" y="${altura - 12}" text-anchor="${m.gran === "ano" ? "middle" : "start"}" class="eixo">${p.ini.getFullYear()}</text>`;
+      svg += `<rect class="alvo" x="${(ml + pi * banda).toFixed(1)}" y="${mt}" width="${banda.toFixed(1)}" height="${ph}" fill="transparent" tabindex="0" data-p="${pi}"/>`;
+    });
+    svg += `<line x1="${ml}" x2="${largura - mr}" y1="${y(0).toFixed(1)}" y2="${y(0).toFixed(1)}" stroke="var(--muted)" stroke-width="1"/></svg>`;
+    alvo.innerHTML = svg + `<div class="dica" hidden></div>`;
+    const dica = alvo.querySelector(".dica");
+    const mostrar = (el) => {
+      const pi = Number(el.dataset.p), p = periodos[pi];
+      dica.textContent = "";
+      const t = document.createElement("div"); t.className = "dica-tit"; t.textContent = `${p.rot}${p.fim > CORTE_PARCIAL ? " (incompleto)" : ""}`; dica.appendChild(t);
+      const tot = document.createElement("div"); tot.className = "dica-tot"; tot.textContent = `${m.metrica === "m2" ? compacto(totais[pi]) + " m²" : nf.format(totais[pi]) + " obras"}`; dica.appendChild(tot);
+      [...ativos].reverse().forEach((i) => {
+        if (!serie[i][pi]) return;
+        const l = document.createElement("div"); l.className = "dica-linha";
+        const k = document.createElement("i"); k.style.background = GRUPOS[i].cor; l.appendChild(k);
+        const b = document.createElement("b"); b.textContent = m.metrica === "m2" ? compacto(serie[i][pi]) : nf.format(serie[i][pi]); l.appendChild(b);
+        l.appendChild(document.createTextNode(" " + GRUPOS[i].nome)); dica.appendChild(l);
+      });
+      dica.hidden = false;
+      const caixa = alvo.getBoundingClientRect(), r = el.getBoundingClientRect();
+      const left = Math.min(Math.max(0, r.left - caixa.left + r.width / 2 - 90), caixa.width - 190);
+      dica.style.left = left + "px"; dica.style.top = "4px";
+      alvo.querySelectorAll(".alvo.ativo").forEach((a) => a.classList.remove("ativo")); el.classList.add("ativo");
+    };
+    alvo.querySelectorAll(".alvo").forEach((el) => {
+      el.addEventListener("pointerenter", () => mostrar(el));
+      el.addEventListener("focus", () => mostrar(el));
+      el.addEventListener("click", () => mostrar(el));
+    });
+    alvo.addEventListener("pointerleave", () => { dica.hidden = true; });
+  }
+  let tResize;
+  window.addEventListener("resize", () => { clearTimeout(tResize); tResize = setTimeout(() => { if (E.vista === "insights" && I.aba === "mercado" && $("grafico")) renderMercado(); }, 250); });
 
   // ------------------------------------------------------------ equipe (admin)
   function renderEquipe() {
@@ -937,7 +1339,8 @@
   });
   conteudo.addEventListener("change", (ev) => {
     const t = ev.target, f = E.filtros[E.vista];
-    const mapa = { "f-mun": "mun", "f-dest": "dest", "f-enc": "enc", "f-ordem": "ordem", "f-papel": "papel" };
+    const mapa = { "f-mun": "mun", "f-dest": "dest", "f-enc": "enc", "f-ordem": "ordem", "f-papel": "papel", "f-area": "area" };
+    if (E.vista === "insights") return mudouInsights(t);
     if (t.id === "f-salvas") { f.salvas = t.checked; return E.vista === "construtoras" ? aplicarConstrutoras() : aplicar(); }
     if (mapa[t.id] && E.vista === "construtoras") { f[mapa[t.id]] = t.value; return aplicarConstrutoras(); }
     if (mapa[t.id]) { f[mapa[t.id]] = t.value; return aplicar(); }
@@ -949,10 +1352,13 @@
   });
   conteudo.addEventListener("click", (ev) => {
     const t = ev.target;
+    if (t.closest("[data-tirar-especial]")) { E.filtros[E.vista].especial = ""; return aplicar(); }
+    if (E.vista === "insights" && cliqueInsights(t)) return;
     const chipJ = t.closest("[data-filtro-janela]"); if (chipJ) { E.filtros[E.vista].janela = chipJ.dataset.filtroJanela; return aplicar(); }
     const chipS = t.closest("[data-filtro-status]"); if (chipS) { E.filtros[E.vista].status = chipS.dataset.filtroStatus; return aplicar(); }
     const det = t.closest("[data-detalhe]"); if (det) return abrirDetalhe(det.dataset.detalhe);
     const est = t.closest("[data-estrela]"); if (est) return alternarSalva(est.dataset.estrela);
+    if (t.closest("[data-tirar-sojanela]")) { E.filtros.construtoras.soJanela = false; return aplicarConstrutoras(); }
     const chipC = t.closest("[data-filtro-salvas]"); if (chipC) { E.filtros.construtoras.salvas = chipC.dataset.filtroSalvas === "1"; return aplicarConstrutoras(); }
     const emp = t.closest(".linha-emp"); if (emp && !t.closest("select, button, a, input, label")) return abrirEmpresa(emp.dataset.basico);
     const rem = t.closest("[data-remover]"); if (rem) return remover(rem.dataset.remover, rem.dataset.vendedor);
@@ -978,7 +1384,8 @@
     const r = ev.target.closest("[data-remover]");
     if (r) { await remover(r.dataset.remover, r.dataset.vendedor); return reabrir(); }
     const ab = ev.target.closest("[data-abrir-empresa]"); if (ab) return abrirEmpresa(ab.dataset.abrirEmpresa);
-    const ao = ev.target.closest("[data-abrir-obra]"); if (ao && !ev.target.closest("select, input")) return abrirDetalhe(ao.dataset.abrirObra, $("detalhe").dataset.basico || null);
+    const ao = ev.target.closest("[data-abrir-obra]"); if (ao && !ev.target.closest("select, input")) return abrirDetalhe(ao.dataset.abrirObra, ao.dataset.voltarLista ? "lista" : $("detalhe").dataset.basico || null);
+    if (ev.target.closest("[data-voltar-lista]") && I.ultimaLista) { const l = I.ultimaLista; return abrirListaObras(l.titulo, l.sub, l.obras, l.dataDe); }
     const es = ev.target.closest("[data-estrela]"); if (es) return alternarSalva(es.dataset.estrela);
   });
   // andamento também pode ser alterado dentro do painel de detalhes
