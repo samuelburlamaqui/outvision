@@ -14,9 +14,12 @@
   --tinta: #1e2a14;
   --etiqueta-bg: #1e2a14;
   --etiqueta-fg: #d4ebbd;
-  --cabos: #b45f22;
-  --pisos: #8a3f7e;
-  --assa: #2d5c9c;
+  /* marcas representadas (cores validadas para daltonismo, nesta ordem) */
+  --apresentacao: #6b7363;   /* neutro: antes de qualquer produto */
+  --vibra: #c2621c;          /* cobre */
+  --mohawk: #6250d6;         /* violeta */
+  --lorenzetti: #0e9384;     /* verde-água */
+  --assa: #2d5c9c;           /* aço */
   --warn: #9a5400;
   --warn-soft: #fbefdc;
   --erro: #a3271b;
@@ -47,7 +50,7 @@
     --bg: #121510; --surface: #1a1e17; --surface-2: #232920; --fg: #ebefe5; --muted: #a3ac98; --line: #2f3629;
     --marca: #a6d483; --marca-texto: #b5dc93; --marca-suave: #26301d; --tinta: #e9f3de;
     --etiqueta-bg: #a6d483; --etiqueta-fg: #172010;
-    --cabos: #e48a4b; --pisos: #d38bc7; --assa: #7fa8e8; --warn: #f0b35a; --warn-soft: #3a2d18;
+    --apresentacao: #a3ac98; --vibra: #d95926; --mohawk: #9085e9; --lorenzetti: #199e70; --assa: #3987e5; --warn: #f0b35a; --warn-soft: #3a2d18;
     --erro: #f4a582; --erro-soft: #3a2218;
     --ouro: #f2c14e; --ouro-bg: #2f2a1a; --ouro-borda: #6b5a2a;
     --serie-1: #3987e5; --serie-2: #d95926; --serie-3: #199e70; --serie-4: #c98500; --serie-5: #d55181; --serie-6: #0ca30c;
@@ -168,7 +171,7 @@ body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-a
 .tempo .cab { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 4px 8px; font-size: 14px; }
 .tempo .fase { font-weight: 600; }
 .tempo .meses { color: var(--muted); font-variant-numeric: tabular-nums; }
-.trilho { position: relative; height: 38px; }
+.trilho { position: relative; height: 46px; }
 .raia { position: absolute; left: 0; right: 0; height: 6px; background: var(--line); border-radius: 3px; }
 .raia i { position: absolute; top: 0; bottom: 0; border-radius: 3px; background: var(--c); opacity: 0.3; }
 .raia i.aberta { opacity: 1; }
@@ -400,6 +403,7 @@ body.com-painel #conteudo { max-width: none; margin-right: calc(var(--painel-w) 
 table.matriz { border-collapse: separate; border-spacing: 4px; width: 100%; min-width: 640px; }
 table.matriz th { font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); text-align: center; padding: 4px; border: 0; }
 table.matriz th[scope="row"] { text-align: left; font-size: 14px; text-transform: none; letter-spacing: 0; color: var(--fg); font-weight: 600; white-space: nowrap; }
+table.matriz th[scope="row"] small { display: block; margin-left: 18px; font-size: 12px; font-weight: 400; color: var(--muted); white-space: normal; max-width: 180px; }
 table.matriz th[scope="row"] .dot, .t-viz .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 8px; vertical-align: middle; }
 table.matriz td { padding: 0; border: 0; }
 .celula { all: unset; cursor: pointer; box-sizing: border-box; width: 100%; min-height: 64px; display: grid; place-content: center; text-align: center; gap: 2px;

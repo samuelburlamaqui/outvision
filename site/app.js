@@ -5,10 +5,11 @@
 (function () {
   // ------------------------------------------------------------ regras (espelho de pipeline/regras.py)
   const JANELAS = [
-    { nome: "Apresentação / especificação", curto: "Apresentação", ini: 0, fim: 30, cor: "var(--marca-texto)" },
-    { nome: "Cabos elétricos", curto: "Cabos", ini: 30, fim: 65, cor: "var(--cabos)" },
-    { nome: "Pisos e revestimentos", curto: "Pisos e revestimentos", ini: 50, fim: 85, cor: "var(--pisos)" },
-    { nome: "ASSA ABLOY", curto: "ASSA ABLOY", ini: 70, fim: 100, cor: "var(--assa)" },
+    { nome: "Apresentação / especificação", curto: "Apresentação", desc: "apresentar a representação e entrar na especificação", ini: 0, fim: 30, cor: "var(--apresentacao)" },
+    { nome: "Vibra", curto: "Vibra", desc: "fios e cabos elétricos", ini: 30, fim: 65, cor: "var(--vibra)" },
+    { nome: "Mohawk", curto: "Mohawk", desc: "pisos e revestimentos (Eliane)", ini: 50, fim: 85, cor: "var(--mohawk)" },
+    { nome: "Lorenzetti", curto: "Lorenzetti", desc: "louças, metais e chuveiros", ini: 60, fim: 95, cor: "var(--lorenzetti)" },
+    { nome: "Assa Abloy", curto: "Assa Abloy", desc: "fechaduras, ferragens e portas", ini: 70, fim: 100, cor: "var(--assa)" },
   ];
   const FASES = [[15, "Início / fundação"], [45, "Estrutura"], [70, "Alvenaria e instalações"], [95, "Acabamento"],
     [115, "Finalização"], [Infinity, "Provavelmente concluída"]];
@@ -27,7 +28,7 @@
   const TIPO_CURTO = { "Residencial multifamiliar": "Prédio residencial", "Comercial salas e lojas": "Comercial",
     "Galpão industrial": "Galpão", "Residencial unifamiliar": "Casa", "Conjunto habitacional popular": "Conjunto habitacional",
     "Casa popular": "Casa popular", "Edifício de Garagens": "Garagem" };
-  const JANELA_CURTA = { "Apresentação / especificação": "Apresentação", "Cabos elétricos": "Cabos", "Pisos e revestimentos": "Pisos", "ASSA ABLOY": "ASSA" };
+  const JANELA_CURTA = { "Apresentação / especificação": "Apresentação", Vibra: "Vibra", Mohawk: "Mohawk", Lorenzetti: "Lorenzetti", "Assa Abloy": "Assa Abloy" };
   // forma de ver (lista ou fichas) fica lembrada neste aparelho
   const lerModo = () => { try { return localStorage.getItem("radar-modo") || "lista"; } catch (e) { return "lista"; } };
   const gravarModo = (m) => { try { localStorage.setItem("radar-modo", m); } catch (e) { /* sem armazenamento: só nesta sessão */ } };
@@ -969,7 +970,7 @@
       <div class="kpis">
         <button type="button" class="kpi" data-kpi="radar"><span class="rot">Obras no radar</span><b>${nf.format(r.length)}</b><span class="sub">ativas, iniciadas desde 2023</span></button>
         <button type="button" class="kpi" data-kpi="novas"><span class="rot">Cadastradas nos últimos 30 dias</span><b>${nf.format(novas)}</b><span class="sub">ver a lista</span></button>
-        <button type="button" class="kpi" data-kpi="entram"><span class="rot">Entram numa janela em 90 dias</span><b>${nf.format(entram.length)}</b><span class="sub">cabos, pisos ou ASSA ABLOY</span></button>
+        <button type="button" class="kpi" data-kpi="entram"><span class="rot">Entram numa janela em 90 dias</span><b>${nf.format(entram.length)}</b><span class="sub">Vibra, Mohawk, Lorenzetti ou Assa Abloy</span></button>
         <button type="button" class="kpi" data-kpi="construtoras"><span class="rot">Construtoras com obra na janela</span><b>${nf.format(cJanela)}</b><span class="sub">ver construtoras</span></button>
       </div>
       <section class="painel">
@@ -1019,7 +1020,7 @@
     };
     $("matriz").innerHTML = `<table class="matriz">
       <thead><tr><th scope="col">Produto</th><th scope="col">Já na janela</th>${meses.map((m, i) => `<th scope="col">${i === 0 ? "Resto de " : ""}${MES_CURTO[m.getMonth()]}/${String(m.getFullYear()).slice(2)}</th>`).join("")}</tr></thead>
-      <tbody>${PRODUTOS.map((j) => `<tr><th scope="row"><span class="dot" style="background:${j.cor}"></span>${esc(j.curto)}</th>${celula(j, "agora", true)}${meses.map((_, i) => celula(j, i, false)).join("")}</tr>`).join("")}</tbody>
+      <tbody>${PRODUTOS.map((j) => `<tr><th scope="row"><span class="dot" style="background:${j.cor}"></span>${esc(j.curto)}<small>${esc(j.desc)}</small></th>${celula(j, "agora", true)}${meses.map((_, i) => celula(j, i, false)).join("")}</tr>`).join("")}</tbody>
     </table>`;
   }
 

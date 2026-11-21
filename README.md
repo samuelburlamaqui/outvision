@@ -2,9 +2,10 @@
 
 SaaS para apoiar o dia a dia de uma representação comercial que atende construtoras com:
 
-- pisos e revestimentos (Grupo Moonhak)
-- cabos elétricos
-- linha completa ASSA ABLOY (fechaduras, ferragens, controle de acesso)
+- **Vibra**: fios e cabos elétricos (Vibra Fios e Cabos Elétricos)
+- **Mohawk**: pisos e revestimentos (grupo Mohawk; no Brasil, Eliane)
+- **Lorenzetti**: louças, metais sanitários, chuveiros e aquecedores
+- **Assa Abloy**: fechaduras, ferragens, portas e controle de acesso (Papaiz, La Fonte, Yale, Silvana, Udinese)
 
 A ideia central: em vez de depender só de encontrar obras na rua, usar o
 **CNO — Cadastro Nacional de Obras** da Receita Federal (público e atualizado
