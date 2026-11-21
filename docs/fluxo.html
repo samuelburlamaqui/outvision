@@ -1,0 +1,93 @@
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>radar de obras · como funciona</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@400;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400&display=swap">
+<style>
+:root{--bg:#f4f6f0;--surface:#fff;--s2:#edf1e6;--fg:#1d2418;--muted:#5d6656;--line:#dbe1d2;--marca:#93c572;--mt:#3f6b17;--suave:#e9f3de;--tinta:#1e2a14;--cf:#f38020;--gh:#24292f;--sb:#3ecf8e;--rf:#1351b4}
+*{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.45 Inter,system-ui,sans-serif;width:1240px;padding:36px 40px 44px}
+h1,h2,h3,h4{margin:0} .topo{display:flex;align-items:center;gap:14px;margin-bottom:6px} .topo .nome{font-family:Sora;font-size:30px;color:var(--tinta)} .topo .nome b{font-weight:700}
+.sub{color:var(--muted);margin:0 0 26px;font-size:15px}
+section{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:24px 26px;margin-bottom:22px}
+section>h2{font-family:Sora;font-size:21px;margin-bottom:4px;color:var(--tinta)} section>p.leg{margin:0 0 18px;color:var(--muted);font-size:14.5px}
+.num{display:inline-grid;place-items:center;width:28px;height:28px;border-radius:50%;background:var(--tinta);color:var(--marca);font-family:Sora;font-weight:700;font-size:15px;margin-right:8px;vertical-align:2px}
+/* fluxo de dados */
+.fluxo{display:grid;grid-template-columns:1fr 34px 1.15fr 34px 1.15fr 34px 1fr 34px 0.95fr;align-items:stretch}
+.no{border:2px solid var(--line);border-radius:14px;padding:14px;display:grid;align-content:start;gap:8px;background:var(--surface)}
+.no .cab{display:flex;align-items:center;gap:8px} .no .tag{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#fff;border-radius:6px;padding:3px 8px}
+.no h3{font-size:17px} .no ul{margin:0;padding-left:18px;font-size:13.5px;color:var(--muted);display:grid;gap:3px} .no ul b{color:var(--fg);font-weight:600}
+.seta{display:grid;place-items:center;color:var(--mt);font-size:26px;font-weight:700}
+.no.rf{border-color:#c7d6f0} .no.rf .tag{background:var(--rf)} .no.gh{border-color:#c9cdd2} .no.gh .tag{background:var(--gh)}
+.no.sb{border-color:#b6ead1} .no.sb .tag{background:#1a9c63} .no.cf{border-color:#f6cfac} .no.cf .tag{background:var(--cf)} .no.eq{border-color:var(--marca);background:var(--suave)} .no.eq .tag{background:var(--tinta)}
+.rodape-fluxo{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:16px}
+.caixa{background:var(--s2);border-radius:12px;padding:12px 14px;font-size:13.5px;color:var(--muted)} .caixa b{color:var(--fg)}
+/* ciclo de mudança */
+.ciclo{display:grid;grid-template-columns:1fr 30px 1.2fr 30px 1fr 30px 1.5fr;align-items:center}
+.passo{border:2px solid var(--line);border-radius:14px;padding:14px;display:grid;gap:6px;height:100%;align-content:start} .passo h3{font-size:16px} .passo p{margin:0;font-size:13.5px;color:var(--muted)}
+.saidas{display:grid;gap:10px} .saida{border:2px solid var(--line);border-radius:14px;padding:12px 14px;display:grid;gap:4px} .saida h3{font-size:15px} .saida p{margin:0;font-size:13.5px;color:var(--muted)}
+.saida.cf{border-color:#f6cfac;background:#fff8f2} .saida.gh{border-color:#c9cdd2;background:#f6f8fa}
+.ondefica{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:18px} .onde{border-radius:12px;padding:12px 14px;background:var(--s2);font-size:13.5px;color:var(--muted);display:block} .onde h4{font-size:14.5px;color:var(--fg);margin-bottom:4px}
+/* linha do tempo */
+.tl{display:grid;grid-template-columns:1fr 1fr;gap:14px 26px} .etapa h4{font-family:Sora;font-size:15px;color:var(--mt);margin-bottom:6px}
+.etapa ol{list-style:none;margin:0;padding:0 0 0 14px;border-left:3px solid var(--marca);display:grid;gap:6px}
+.etapa li{position:relative;font-size:13.5px;display:grid;grid-template-columns:86px 1fr;gap:8px} .etapa li::before{content:"";position:absolute;left:-21px;top:5px;width:11px;height:11px;border-radius:50%;background:var(--tinta);border:2px solid var(--surface)}
+.etapa li time{font-family:"IBM Plex Mono",monospace;font-size:12.5px;color:var(--muted)} .etapa li.bot::before{background:var(--marca)} .etapa li em{grid-column:2;font-style:normal;font-size:12px;color:var(--mt);font-weight:600}
+.resumo-gh{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:18px} .pill{background:var(--s2);border-radius:999px;padding:6px 14px;font-size:13.5px} .pill b{font-weight:600}
+.mono{font-family:"IBM Plex Mono",monospace;font-size:13px}
+</style></head><body>
+<div class="topo"><img src="../marca/icone.png" width="44" height="44" alt=""><span class="nome"><b>radar</b> de obras</span></div>
+<p class="sub">Como o sistema funciona · situação em 21/11/2026</p>
+
+<section>
+<h2><span class="num">1</span>O caminho dos dados</h2>
+<p class="leg">Da Receita Federal até a tela do tablet, sem ninguém precisar baixar ou enviar arquivo.</p>
+<div class="fluxo">
+ <div class="no rf"><div class="cab"><span class="tag">Receita Federal</span></div><h3>CNO · Cadastro Nacional de Obras</h3>
+  <ul><li>arquivo <b>cno.zip</b> (~340 MB)</li><li>atualizado <b>todo dia</b></li><li>3,7 milhões de obras do Brasil</li></ul></div>
+ <div class="seta">→</div>
+ <div class="no gh"><div class="cab"><span class="tag">GitHub Actions</span></div><h3>Rotina “atualizar-obras”</h3>
+  <ul><li>roda <b>todo dia às 6h17</b>; carrega se a última carga tem 3+ dias</li><li>baixa, filtra o <b>Pará</b>, tira infraestrutura, estima a fase</li><li>se a Receita cair: usa o <b>último arquivo guardado</b></li></ul></div>
+ <div class="seta">→</div>
+ <div class="no sb"><div class="cab"><span class="tag">Supabase</span></div><h3>Banco de dados e login</h3>
+  <ul><li><b>36,5 mil</b> obras do PA · <b>5,2 mil</b> empresas</li><li>encaminhamentos, andamento, anotações, minhas construtoras</li><li>regras: <b>admin vê tudo</b>, vendedor só as dele</li></ul></div>
+ <div class="seta">⇄</div>
+ <div class="no cf"><div class="cab"><span class="tag">Cloudflare</span></div><h3>O site</h3>
+  <ul><li class="mono">radar-obras.samuel-d2e.workers.dev</li><li>Todas as obras · Minhas obras · Construtoras · Insights · Equipe</li></ul></div>
+ <div class="seta">⇄</div>
+ <div class="no eq"><div class="cab"><span class="tag">Equipe</span></div><h3>Quem usa</h3>
+  <ul><li><b>Admins</b>: veem tudo, encaminham, Insights</li><li><b>Vendedores</b>: obras encaminhadas, andamento, anotações</li><li>tablet, celular ou computador</li></ul></div>
+</div>
+<div class="rodape-fluxo">
+ <div class="caixa"><b>Obras no radar:</b> ativas, iniciadas desde 2023, de qualquer tamanho, sem infraestrutura — hoje <b>4.485</b>.</div>
+ <div class="caixa"><b>Fase da obra:</b> estimada pela data de início + prazo típico do tipo e tamanho; recalculada todo dia ao abrir o site.</div>
+ <div class="caixa"><b>Próximo passo dos dados:</b> telefone, e-mail e natureza jurídica das empresas pela consulta de CNPJ (CNPJá).</div>
+</div>
+</section>
+
+<section>
+<h2><span class="num">2</span>Como uma mudança chega ao site</h2>
+<p class="leg">Tudo pelo chat: você pede, eu faço e testo, e a publicação é automática.</p>
+<div class="ciclo">
+ <div class="passo"><h3>① Você pede aqui</h3><p>Pelo tablet, no chat com o Claude: uma tela nova, um ajuste, uma correção.</p></div>
+ <div class="seta">→</div>
+ <div class="passo"><h3>② Claude escreve e testa</h3><p>Num ambiente de testes: banco local com os dados reais do Pará e o site num navegador simulado (tablet e celular).</p></div>
+ <div class="seta">→</div>
+ <div class="passo"><h3>③ Envia ao GitHub</h3><p><b>commit + push</b> no repositório <span class="mono">outvision</span>, branch <span class="mono">claude/saas-prospeccao-obras-3t30et</span>.</p></div>
+ <div class="seta">→</div>
+ <div class="saidas">
+  <div class="saida cf"><h3>④ Mudou o site → Cloudflare publica</h3><p>Em ~1 minuto, sozinha. Você só recarrega a página.</p></div>
+  <div class="saida gh"><h3>④ Mudou o banco ou a carga → GitHub Actions</h3><p>Aplica a estrutura nova no Supabase e recarrega as obras (~10 minutos).</p></div>
+ </div>
+</div>
+<div class="ondefica">
+ <div class="onde"><h4>GitHub</h4>Código e todo o histórico de mudanças. Público por enquanto; fica privado quando estabilizar.</div>
+ <div class="onde"><h4>Supabase</h4>Dados, logins, andamento e anotações. <b>Nunca</b> vão para o GitHub.</div>
+ <div class="onde"><h4>Cofre do GitHub</h4>A senha do banco (<span class="mono">SUPABASE_DB_URL</span>), usada só pela rotina.</div>
+ <div class="onde"><h4>Cloudflare</h4>As chaves públicas que ligam o site ao banco.</div>
+</div>
+</section>
+
+<section>
+<h2><span class="num">3</span>As atualizações no GitHub até agora</h2>
+<p class="leg">Cada linha é um commit: um pacote de mudanças enviado ao repositório, com data e hora de Brasília.</p>
+<div class="resumo-gh"><span class="pill"><b>21</b> commits</span><span class="pill"><b>20</b> feitos pelo Claude</span><span class="pill"><b>1</b> automático (robô do GitHub)</span><span class="pill">rotinas: <b>atualizar-obras</b> (diária) · <b>explorar-cno</b> (manual)</span></div>
+<div class="tl"><div class="etapa"><h4>Entender o dado e primeiro radar</h4><ol><li class=""><time>19/11 23:39</time><span>Pipeline inicial para baixar e explorar o CNO da Receita Federal</span></li><li class=""><time>20/11 00:02</time><span>Analisa a base real do CNO (18/11/2026) com olhar de prospecção</span></li><li class=""><time>20/11 00:11</time><span>Recorte do Pará: obras ≥ 800 m², sem infraestrutura, com fase estimada</span></li><li class=""><time>20/11 00:17</time><span>Radar de Obras Pará: página interativa com obras ativas desde 2023</span></li><li class=""><time>20/11 00:38</time><span>Marca radar de obras (pistache) e fichas mais confortáveis</span></li></ol></div><div class="etapa"><h4>Plano e GitHub liberado</h4><ol><li class=""><time>20/11 10:55</time><span>Plano do SaaS: arquitetura na nuvem, perfis, rotina de dados e etapas</span></li><li class=""><time>20/11 11:08</time><span>Rotina explorar-cno: documenta o teste de download da Receita</span></li><li class="bot"><time>20/11 11:15</time><span>Atualiza exploração do CNO</span><em>robô do GitHub</em></li><li class=""><time>20/11 11:17</time><span>Corrige códigos de qualificação conforme o dicionário oficial</span></li></ol></div><div class="etapa"><h4>Banco, login e site no ar</h4><ol><li class=""><time>20/11 11:46</time><span>Banco no Supabase: estrutura, regras de acesso e carga automática das obras</span></li><li class=""><time>20/11 11:54</time><span>Base do site para a Cloudflare Pages: página de checagem e config no build</span></li><li class=""><time>20/11 12:57</time><span>Site como Worker da Cloudflare (arquivos estáticos + /config.js)</span></li><li class=""><time>20/11 13:03</time><span>Site: usa as variáveis de build da Cloudflare e normaliza a URL do Supabase</span></li><li class=""><time>20/11 13:18</time><span>App: entrada, todas as obras com encaminhamento, minhas obras, anotações e equipe</span></li></ol></div><div class="etapa"><h4>Uso no dia a dia: lista e painel lateral</h4><ol><li class=""><time>20/11 16:50</time><span>Lista compacta de obras e seletor Lista/Fichas</span></li><li class=""><time>20/11 16:58</time><span>Detalhes da obra em painel lateral</span></li></ol></div><div class="etapa"><h4>Construtoras</h4><ol><li class=""><time>20/11 20:42</time><span>Construtoras no banco: empresas, ligação obra↔empresa e minhas construtoras</span></li><li class=""><time>20/11 20:46</time><span>Aba Construtoras e Minhas construtoras</span></li><li class=""><time>20/11 20:50</time><span>Rotina de obras resistente à Receita fora do ar</span></li></ol></div><div class="etapa"><h4>Insights</h4><ol><li class=""><time>20/11 21:26</time><span>Banco: radar sem área mínima e funções de Mercado (só admin)</span></li><li class=""><time>20/11 21:33</time><span>Insights (só admin), radar sem área mínima e filtro de área</span></li></ol></div></div>
+</section>
+</body></html>
