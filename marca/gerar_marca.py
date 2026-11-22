@@ -18,15 +18,15 @@ from fontTools.pens.transformPen import TransformPen
 from fontTools.ttLib import TTFont
 
 # ------------------------------------------------------------------ cores da marca
-PISTACHE = "#93C572"        # cor da marca (fundos, ícone)
-PISTACHE_CLARO = "#E9F3DE"  # fundos suaves
-PISTACHE_TEXTO = "#3F6B17"  # pistache escuro para texto e links sobre branco
-TINTA = "#1E2A14"           # verde-oliva quase preto (traço do ícone, texto)
-CREME = "#F1F5EA"           # texto da marca sobre fundo escuro
-FUNDO_ESCURO = "#141811"
+OURO = "#E9A93C"            # cor da marca (fundo do ícone, botão principal)
+OURO_CLARO = "#FDF3DF"      # fundos suaves (item selecionado)
+OURO_TEXTO = "#8A5A00"      # ouro escuro para texto e links sobre branco
+MARINHO = "#161C2D"         # azul-marinho quase preto (traço do ícone, texto)
+BRANCO = "#FFFFFF"          # texto da marca sobre fundo marinho
+FUNDO_ESCURO = MARINHO
 
 
-def icone_svg(tamanho: int = 512, fundo: str = PISTACHE, tinta: str = TINTA, canto: float = 116,
+def icone_svg(tamanho: int = 512, fundo: str = OURO, tinta: str = MARINHO, canto: float = 116,
               x0: float = 0, y0: float = 0, so_desenho: bool = False) -> str:
     """Ícone: tela de radar com o ponteiro varrendo e um bloco (a obra) recém-detectado.
 
@@ -99,7 +99,7 @@ class Texto:
 
 
 def logo_svg(bold: Texto, regular: Texto, cor_texto: str, altura: int = 128, fundo: str | None = None,
-             cor_icone: str = PISTACHE, tinta_icone: str = TINTA) -> tuple[str, float, float]:
+             cor_icone: str = OURO, tinta_icone: str = MARINHO) -> tuple[str, float, float]:
     tam = altura * 0.56
     pad = altura * 0.22 if fundo else 0
     xt = pad + altura + altura * 0.26
@@ -144,10 +144,10 @@ def main() -> int:
                         'role="img" aria-label="Radar de Obras">' + icone_svg() + "</svg>")
     salvar("icone-escuro.svg", '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" '
                                'role="img" aria-label="Radar de Obras">'
-                               + icone_svg(fundo=TINTA, tinta=PISTACHE) + "</svg>")
-    salvar("logo.svg", logo_svg(bold, regular, TINTA)[0])
-    salvar("logo-fundo-escuro.svg", logo_svg(bold, regular, CREME)[0])
-    salvar("logo-com-fundo.svg", logo_svg(bold, regular, TINTA, fundo="#FFFFFF")[0])
+                               + icone_svg(fundo=MARINHO, tinta=OURO) + "</svg>")
+    salvar("logo.svg", logo_svg(bold, regular, MARINHO)[0])
+    salvar("logo-fundo-escuro.svg", logo_svg(bold, regular, BRANCO)[0])
+    salvar("logo-com-fundo.svg", logo_svg(bold, regular, MARINHO, fundo="#FFFFFF")[0])
     return 0
 
 

@@ -9,8 +9,8 @@ O nome diz o que o produto faz: encontrar obras antes da concorrência.
 
 | Arquivo | Uso |
 |---|---|
-| `icone.svg` / `icone.png` | Ícone do app, favicon, avatar (fundo pistache) |
-| `icone-escuro.svg` | Ícone sobre fundo escuro (fundo tinta, traço pistache) |
+| `icone.svg` / `icone.png` | Ícone do app, favicon, avatar (fundo ouro) |
+| `icone-escuro.svg` | Ícone alternativo (fundo marinho, traço ouro) |
 | `logo.svg` / `logo.png` | Logo horizontal para fundo claro |
 | `logo-fundo-escuro.svg` / `.png` | Logo horizontal para fundo escuro |
 | `logo-com-fundo.svg` | Logo com fundo branco (documentos, e-mail) |
@@ -20,16 +20,17 @@ O nome diz o que o produto faz: encontrar obras antes da concorrência.
 
 | Nome | Hex | Uso |
 |---|---|---|
-| Pistache | `#93C572` | Cor da marca: ícone, fundos de destaque |
-| Pistache claro | `#E9F3DE` | Fundos suaves (faixa da cidade nas fichas) |
-| Pistache texto | `#3F6B17` | Texto e links em pistache sobre branco (contraste AA) |
-| Tinta | `#1E2A14` | Texto da marca, traço do ícone, etiquetas fortes |
-| Creme | `#F1F5EA` | Texto da marca sobre fundo escuro |
+| Ouro | `#E9A93C` | Cor da marca: fundo do ícone, botão principal, aba ativa |
+| Ouro suave | `#FDF3DF` | Fundo do filtro ou item selecionado |
+| Ouro texto | `#8A5A00` | Links e texto do item selecionado (contraste AA sobre branco) |
+| Marinho | `#161C2D` | Texto principal, traço do ícone, selo "PARÁ" |
+| Fundo | `#F5F6F9` | Fundo das telas, atrás dos cartões |
 
-Pistache puro (`#93C572`) não deve ser usado para texto sobre branco: o contraste é baixo.
+O ouro puro (`#E9A93C`) não deve ser usado para texto sobre branco: o contraste é baixo.
+No site aparece só o ícone; o nome "radar de obras" surge ao passar o mouse sobre ele.
+O site tem só tema claro.
 
 ## Tipografia
 
 - **Sora** (Google Fonts) — logo: "radar" em negrito (700) e "de obras" em regular (400), tudo minúsculo.
 - **Inter** — textos do app.
-- **Barlow Condensed** — números e nomes de cidade em destaque.

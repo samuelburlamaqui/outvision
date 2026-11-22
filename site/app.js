@@ -137,7 +137,7 @@
     o.area = o.area_principal == null ? null : Number(o.area_principal);
     o.susp = o.area != null && o.area > AREA_SUSPEITA;
     o.cnpjF = fmtCnpj(o.cnpj);
-    o.tNome = titulo(o.nome); o.tResp = titulo(o.responsavel); o.tBairro = titulo(o.bairro);
+    o.tNome = titulo(o.nome); o.tResp = titulo(o.responsavel); o.tBairro = titulo(o.bairro); o.tMun = titulo(o.municipio);
     o.tEnd = titulo(endereco(o)); o.tVinc = titulo(fmtCnpjsNoTexto(o.vinculadas));
     o.busca = sem([o.nome, o.responsavel, o.cnpj, o.cnpjF, o.bairro, o.municipio, endereco(o), o.vinculadas, o.cno, o.destinacoes].join(" "));
     return o;
@@ -446,7 +446,7 @@
     if (!o.cnpj) alertas.push(`<span class="alerta">pessoa física</span>`);
     if (o.situacao && o.situacao !== "02") alertas.push(`<span class="alerta">situação no CNO: ${esc({ "01": "nula", "03": "suspensa", "14": "paralisada", "15": "encerrada" }[o.situacao] || o.situacao)}</span>`);
     return {
-      cidade: `<div class="cidade">${ico("pin")}<div class="lugar"><span class="mun">${esc(o.municipio)}</span>${o.bairro ? `<span class="bairro">${esc(o.tBairro)}</span>` : ""}</div>
+      cidade: `<div class="cidade">${ico("pin")}<div class="lugar"><span class="mun">${esc(o.tMun || titulo(o.municipio))}</span>${o.bairro ? `<span class="bairro">${esc(o.tBairro)}</span>` : ""}</div>
         <div class="area"><b>${o.area ? nf.format(Math.round(o.area)) : "–"}</b><small>m²</small></div></div>`,
       tipos: `<div class="tipos"><span class="tipo">${ico(ICONE[o.destinacao] || "predio")}${esc(o.destinacao || "Tipo não informado")}</span>${o.categoria ? `<span class="cat">${esc(o.categoria)}</span>` : ""}${alertas.join("")}</div>`,
       resp: `<div class="resp">${o.responsavel && o.responsavel !== o.nome ? `<span class="nome">${esc(o.tResp)}</span>` : ""}${o.cnpj ? `<span class="cnpj"><span class="mono">${esc(o.cnpjF)}</span><button type="button" class="copiar" data-copiar="${esc(o.cnpjF)}">Copiar CNPJ</button></span>` : ""}<span>${esc(QUALIF[o.qualificacao] || "")}</span></div>`,
@@ -533,7 +533,7 @@
     }
     const n = E.notas.get(o.cno) || 0;
     return `<div class="linha-obra" data-cno="${esc(o.cno)}" tabindex="0" role="button" aria-label="Abrir ${esc(o.tNome)}">
-      <div class="c-cidade"><span class="mun">${esc(o.municipio)}</span><span class="bairro">${esc(o.tBairro)}</span></div>
+      <div class="c-cidade"><span class="mun">${esc(o.tMun || titulo(o.municipio))}</span><span class="bairro">${esc(o.tBairro)}</span></div>
       <div class="c-obra"><span class="t">${esc(o.tNome)}</span>
         <span class="s">${o.responsavel && o.responsavel !== o.nome ? esc(o.tResp) + " · " : ""}${esc(o.cnpjF || QUALIF[o.qualificacao] || "")}${n ? ` · ${n} anotaç${n === 1 ? "ão" : "ões"}` : ""}</span>
         ${avisos ? `<span class="avisos">${avisos}</span>` : ""}</div>
@@ -870,7 +870,7 @@
   function linhaMini(o) {
     const vend = encDe(o.cno).map((e) => nomeDe(e.vendedor_id)).join(", ");
     return `<button type="button" class="obra-mini" data-abrir-obra="${esc(o.cno)}">
-      <span class="topo-mini"><span class="mun">${esc(o.municipio)}</span><span class="tipo-mini">${ico(ICONE[o.destinacao] || "predio")}${esc(TIPO_CURTO[o.destinacao] || o.destinacao || "—")}</span><b>${o.area ? nf.format(Math.round(o.area)) + " m²" : "–"}</b></span>
+      <span class="topo-mini"><span class="mun">${esc(o.tMun || titulo(o.municipio))}</span><span class="tipo-mini">${ico(ICONE[o.destinacao] || "predio")}${esc(TIPO_CURTO[o.destinacao] || o.destinacao || "—")}</span><b>${o.area ? nf.format(Math.round(o.area)) + " m²" : "–"}</b></span>
       <span class="t">${esc(o.tNome)}</span>
       <span class="rodape-mini"><span>${esc(o.fase)}${o.pct == null ? "" : " · " + nf.format(Math.round(o.pct)) + "%"}</span>
         ${o.janelas.filter((j) => j.ini > 0).map((j) => `<span class="mini" style="--c:${j.cor}">${esc(JANELA_CURTA[j.nome])}</span>`).join("")}
@@ -1017,7 +1017,7 @@
       const outro = d.metrica === "m2" ? `${nf.format(lista.length)} obra${lista.length === 1 ? "" : "s"}` : `${compacto(m2)} m²`;
       if (!lista.length) return `<td class="vazia">–</td>`;
       const p = destaque ? -1 : passo(v);
-      return `<td><button type="button" class="celula ${p >= 4 ? "escura" : ""}" style="${p >= 0 ? `background:var(--seq-${p})` : ""}" data-celula="${esc(j.nome + "|" + chave)}">
+      return `<td><button type="button" class="celula ${p >= 3 ? "escura" : ""}" style="${p >= 0 ? `background:var(--seq-${p})` : ""}" data-celula="${esc(j.nome + "|" + chave)}">
         <b>${d.metrica === "m2" ? compacto(v) : nf.format(v)}</b><small>${esc(outro)}</small></button></td>`;
     };
     $("matriz").innerHTML = `<table class="matriz">
@@ -1165,7 +1165,7 @@
       geo.meso.forEach((g) => {
         if (!g.centro) return;
         const [cx, cy] = g.centro, metro = g.nome === "Metropolitana de Belém";
-        const escuro = !metro && passo(n(g.nome)) >= 4 ? " sobre-escuro" : "";
+        const escuro = !metro && passo(n(g.nome)) >= 3 ? " sobre-escuro" : "";
         const linhas = metro ? ["Metropolitana", "de Belém"] : g.nome.replace(" Paraense", "|Paraense").split("|");
         const [ox, oy] = { "Nordeste Paraense": [-50, 45] }[g.nome] || [0, 0];
         const tx = metro ? Math.min(cx + 30, geo.W - 100) : cx + ox, ty = metro ? cy - 150 : cy + oy - 14 * linhas.length;
@@ -1401,7 +1401,7 @@
     const w = 120, h = 28, max = Math.max(1, ...vals);
     const pts = vals.map((v, i) => [vals.length > 1 ? (i / (vals.length - 1)) * (w - 6) + 3 : w / 2, h - 3 - (v / max) * (h - 6)]);
     const ult = pts[pts.length - 1];
-    return `<svg class="spark" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" aria-hidden="true"><polyline points="${pts.map((p) => p.map((x) => x.toFixed(1)).join(",")).join(" ")}" fill="none" stroke="var(--muted)" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>${ult ? `<circle cx="${ult[0].toFixed(1)}" cy="${ult[1].toFixed(1)}" r="3" fill="var(--marca-texto)"/>` : ""}</svg>`;
+    return `<svg class="spark" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" aria-hidden="true"><polyline points="${pts.map((p) => p.map((x) => x.toFixed(1)).join(",")).join(" ")}" fill="none" stroke="var(--muted)" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>${ult ? `<circle cx="${ult[0].toFixed(1)}" cy="${ult[1].toFixed(1)}" r="3" fill="var(--dado)"/>` : ""}</svg>`;
   }
   // colunas empilhadas por tipo, com dica ao tocar/passar o dedo
   function desenharColunas(alvo, periodos, serie, m) {
