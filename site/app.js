@@ -44,6 +44,8 @@
   const fmtCnpjsNoTexto = (t) => (t || "").replace(/\b\d{14}\b/g, fmtCnpj);
   const fmtCno = (s) => (s && s.length === 12 ? `${s.slice(0, 2)}.${s.slice(2, 5)}.${s.slice(5, 10)}/${s.slice(10)}` : s);
   const HOJE = new Date(); HOJE.setHours(0, 0, 0, 0);
+  const NEWS_DESDE = Date.parse("2026-11-23T11:00:00Z"), NEWS_DIAS = 7;
+  const rotAtualizacao = () => (E.atualizacao ? `· dados atualizados em ${E.atualizacao.toLocaleDateString("pt-BR")}` : "");
 
   // Texto do cadastro vem TODO EM MAIÚSCULAS; vira "Título" para ler o dia inteiro.
   const SIGLAS = new Set(("LTDA SA SPE EIRELI ME EPP CNPJ PA UBS EMEF EMEIF EMEI UFPA UFOPA UFRA IFPA SEDUC SESAU SESPA SEDOP " +
@@ -175,11 +177,15 @@
     }
     E.obras = new Map(obras.map((o) => [o.cno, calcular(o)]));
     await carregarEmpresas();
-    // "nova" = entrou na base depois da primeira carga, nos últimos 14 dias
-    const datas = obras.map((o) => o.primeira_vez_em).filter(Boolean).sort();
-    const base = datas.length ? new Date(datas[0]).getTime() + 86400000 : Infinity;
-    const limite = Date.now() - 14 * 86400000;
-    obras.forEach((o) => { const t = new Date(o.primeira_vez_em).getTime(); o.nova = t > base && t > limite; });
+    // "News" = obra que entrou na base nos últimos NEWS_DIAS dias, contando só as atualizações
+    // feitas depois de NEWS_DESDE (as obras que já estavam na base não recebem a etiqueta)
+    const limite = Math.max(NEWS_DESDE, Date.now() - NEWS_DIAS * 86400000);
+    obras.forEach((o) => { const t = new Date(o.primeira_vez_em).getTime(); o.nova = t > limite; });
+    // data da última atualização das obras (mostrada no lugar de "fase calculada para hoje")
+    try {
+      const { data, error } = await sb.rpc("ultima_atualizacao");
+      E.atualizacao = !error && data && data[0] ? new Date(data[0].em) : null;
+    } catch (e) { E.atualizacao = null; }
   }
 
   // empresas ligadas às obras carregadas, e as construtoras salvas pelo usuário
@@ -345,7 +351,7 @@
         </div>
       </section>
       <div class="resumo">
-        <span><strong id="qtd">0</strong> <span id="qtd-rot">obras</span> <small class="hoje-rot">· fase calculada para hoje, ${HOJE.toLocaleDateString("pt-BR")}</small></span>
+        <span><strong id="qtd">0</strong> <span id="qtd-rot">obras</span> <small class="hoje-rot">${rotAtualizacao()}</small></span>
         <div class="modos" role="group" aria-label="Forma de ver as obras">
           <button type="button" data-modo="lista" aria-pressed="${E.modo === "lista"}">${ico("lista")}Lista</button>
           <button type="button" data-modo="fichas" aria-pressed="${E.modo === "fichas"}">${ico("fichas")}Fichas</button>
@@ -441,7 +447,7 @@
   }
   function cabecalhoObra(o) {
     const alertas = [];
-    if (o.nova) alertas.push(`<span class="novo">Nova na base</span>`);
+    if (o.nova) alertas.push(`<span class="novo" title="Entrou na base nos últimos 7 dias">News</span>`);
     if (o.susp) alertas.push(`<span class="alerta">área provavelmente digitada errada</span>`);
     if (!o.cnpj) alertas.push(`<span class="alerta">pessoa física</span>`);
     if (o.situacao && o.situacao !== "02") alertas.push(`<span class="alerta">situação no CNO: ${esc({ "01": "nula", "03": "suspensa", "14": "paralisada", "15": "encerrada" }[o.situacao] || o.situacao)}</span>`);
@@ -514,7 +520,7 @@
     const agora = o.janelas.length
       ? o.janelas.map((j) => `<span class="mini" style="--c:${j.cor}">${esc(JANELA_CURTA[j.nome])}</span>`).join("")
       : o.passou ? `<span class="fraco">passou do prazo</span>` : `<span class="fraco">—</span>`;
-    const avisos = [o.nova ? `<span class="novo">Nova</span>` : "", !o.cnpj ? `<span class="alerta">pessoa física</span>` : "",
+    const avisos = [o.nova ? `<span class="novo" title="Entrou na base nos últimos 7 dias">News</span>` : "", !o.cnpj ? `<span class="alerta">pessoa física</span>` : "",
       o.susp ? `<span class="alerta">área suspeita</span>` : ""].join("");
     let vend;
     if (E.vista === "todas") {
@@ -776,7 +782,7 @@
         </div>
         <div class="chips" id="chips" role="group" aria-label="Quais construtoras"></div>
       </section>
-      <div class="resumo"><span><strong id="qtd">0</strong> <span id="qtd-rot">construtoras</span> <small class="hoje-rot">· obras e fases calculadas para hoje, ${HOJE.toLocaleDateString("pt-BR")}</small></span></div>
+      <div class="resumo"><span><strong id="qtd">0</strong> <span id="qtd-rot">construtoras</span> <small class="hoje-rot">${rotAtualizacao()}</small></span></div>
       <div class="lista" id="grade"></div>
       <button class="btn mais" id="mais" type="button" hidden>Mostrar mais</button>`;
     aplicarConstrutoras();
