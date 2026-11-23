@@ -449,7 +449,7 @@
       cidade: `<div class="cidade">${ico("pin")}<div class="lugar"><span class="mun">${esc(o.tMun || titulo(o.municipio))}</span>${o.bairro ? `<span class="bairro">${esc(o.tBairro)}</span>` : ""}</div>
         <div class="area"><b>${o.area ? nf.format(Math.round(o.area)) : "–"}</b><small>m²</small></div></div>`,
       tipos: `<div class="tipos"><span class="tipo">${ico(ICONE[o.destinacao] || "predio")}${esc(o.destinacao || "Tipo não informado")}</span>${o.categoria ? `<span class="cat">${esc(o.categoria)}</span>` : ""}${alertas.join("")}</div>`,
-      resp: `<div class="resp">${o.responsavel && o.responsavel !== o.nome ? `<span class="nome">${esc(o.tResp)}</span>` : ""}${o.cnpj ? `<span class="cnpj"><span class="mono">${esc(o.cnpjF)}</span><button type="button" class="copiar" data-copiar="${esc(o.cnpjF)}">Copiar CNPJ</button></span>` : ""}<span>${esc(QUALIF[o.qualificacao] || "")}</span></div>`,
+      resp: `<div class="resp">${o.responsavel && o.responsavel !== o.nome ? `<span class="nome">${esc(o.tResp)}</span>` : ""}${o.cnpj ? `<span class="cnpj"><span class="mono">${esc(o.cnpjF)}</span><button type="button" class="copiar" data-copiar="${esc(o.cnpjF)}">Copiar CNPJ</button>${linkCnpja(o.cnpj)}</span>` : ""}<span>${esc(QUALIF[o.qualificacao] || "")}</span></div>`,
       local: `<div class="local"><span class="end">${esc(o.tEnd)}${o.cep ? " · CEP " + esc(o.cep) : ""}</span><a class="mapa" href="${esc(linkMapa(o))}" target="_blank" rel="noopener">${ico("mapa")}Abrir no mapa</a></div>`,
     };
   }
@@ -570,6 +570,11 @@
     E.acomp.set(cno + "|" + E.eu.id, novo);
     if (E.vista === "minhas" && $("chips")) renderChips(baseFiltrada());
     toast(mudanca.status ? "Andamento: " + STATUS_NOME[mudanca.status] : "Próxima ação salva");
+  }
+  // abre a ficha da empresa no CNPJá (site público de consulta de CNPJ), numa nova aba
+  function linkCnpja(cnpj) {
+    const n = String(cnpj || "").replace(/\D/g, "");
+    return n.length === 14 ? `<a class="copiar" href="https://cnpja.com/office/${n}" target="_blank" rel="noopener noreferrer">Ver no CNPJá ↗</a>` : "";
   }
   async function copiar(btn) {
     const txt = btn.dataset.copiar;

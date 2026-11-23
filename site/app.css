@@ -160,7 +160,7 @@ body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-a
 .resp { font-size: 15px; color: var(--muted); display: grid; gap: 4px; min-width: 0; }
 .resp .nome { color: var(--fg); overflow-wrap: anywhere; }
 .cnpj { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.copiar { font-size: 13px; color: var(--marca-texto); background: none; border: 1px solid var(--line); border-radius: 4px; padding: 4px 10px; min-height: 32px; cursor: pointer; }
+.copiar { font-size: 13px; color: var(--marca-texto); background: none; border: 1px solid var(--line); border-radius: 4px; padding: 4px 10px; min-height: 32px; cursor: pointer; display: inline-flex; align-items: center; text-decoration: none; }
 .local { font-size: 15px; display: grid; gap: 4px; color: var(--muted); }
 .local .end { overflow-wrap: anywhere; }
 .mapa { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; font-size: 15px; min-height: 40px; text-decoration: none; }
