@@ -2,8 +2,9 @@ name: atualizar-obras
 
 # Baixa o CNO da Receita, filtra o Pará e atualiza o banco (Supabase).
 #
-# - Agendada todo dia, mas só carrega se a última carga tiver 3 dias ou mais
-#   (assim, se a Receita estiver fora do ar, tenta de novo no dia seguinte).
+# - Agendada todo dia, mas só carrega se o arquivo da Receita carregado por último tiver
+#   3 dias ou mais. Se o download falhar (e a carga usar o arquivo guardado), o arquivo
+#   continua velho e a rotina tenta de novo no dia seguinte.
 # - Guarda o último arquivo baixado com sucesso. Se a Receita recusar o download,
 #   carrega esse arquivo anterior e avisa. Sem arquivo guardado, usa a cópia publicada
 #   na release do repositório "obras".
@@ -63,8 +64,8 @@ jobs:
         id: precisa
         run: |
           if [ "$GITHUB_EVENT_NAME" != "schedule" ]; then echo "sim=1" >> "$GITHUB_OUTPUT"; exit 0; fi
-          dias=$(psql "$DATABASE_URL" -tAc "select coalesce(floor(extract(epoch from now() - max(iniciada_em)) / 86400), 999)::int from public.cargas" 2>/dev/null || echo 999)
-          echo "Última carga há $dias dia(s)."
+          dias=$(psql "$DATABASE_URL" -tAc "select coalesce(floor(extract(epoch from now() - (select em from public.ultima_atualizacao())) / 86400), 999)::int" 2>/dev/null || echo 999)
+          echo "Arquivo da Receita carregado por último tem $dias dia(s)."
           if [ "$dias" -ge "$DIAS_ENTRE_CARGAS" ]; then echo "sim=1" >> "$GITHUB_OUTPUT"; else echo "Nada a fazer hoje."; fi
 
       - name: Aplicar estrutura do banco
