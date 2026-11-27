@@ -98,6 +98,17 @@
   const encDe = (cno) => E.enc.filter((e) => e.cno === cno);
   const minha = (cno) => E.enc.some((e) => e.cno === cno && e.vendedor_id === E.eu.id);
   const acompDe = (cno, vid) => E.acomp.get(cno + "|" + vid);
+  // situação de uma obra para uma representante: etapa, próxima ação vencida, dias sem movimentação
+  const PARADA_DIAS = 14;
+  const hojeISO = () => new Date(HOJE.getTime() - HOJE.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+  function situacao(cno, vid) {
+    const a = acompDe(cno, vid) || {}, e = E.enc.find((x) => x.cno === cno && x.vendedor_id === vid) || {};
+    const st = a.status || "nova", aberta = st !== "fechada" && st !== "perdida";
+    const desde = a.atualizado_em || e.encaminhado_em;
+    const dias = desde ? Math.max(0, Math.floor((Date.now() - new Date(desde).getTime()) / 86400000)) : null;
+    return { st, aberta, dias, proxima: a.proxima_acao || null,
+      vencida: aberta && !!a.proxima_acao && a.proxima_acao < hojeISO(), parada: aberta && dias != null && dias >= PARADA_DIAS };
+  }
 
   // ------------------------------------------------------------ telas
   function mostrar(qual) {
@@ -327,7 +338,12 @@
     const opt = (obj, sel, fmt) => Object.entries(obj).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
       .map(([k, n]) => `<option value="${esc(k)}" ${k === sel ? "selected" : ""}>${esc(fmt ? fmt(k) : k)} (${n})</option>`).join("");
     const vendedores = E.perfis.filter((p) => p.ativo);
-    const filtroEnc = E.vista === "todas" ? `
+    const quadro = E.modo === "quadro";
+    const filtroEnc = E.vista === "todas" && quadro ? `
+      <div class="campo"><label for="f-enc">Representante</label><select id="f-enc">
+        <option value="">Todas</option>
+        ${vendedores.filter((p) => E.enc.some((e) => e.vendedor_id === p.id)).map((p) => `<option value="${esc(p.id)}" ${f.enc === p.id ? "selected" : ""}>${esc(p.nome || p.email)}</option>`).join("")}
+      </select></div>` : E.vista === "todas" ? `
       <div class="campo"><label for="f-enc">Encaminhamento</label><select id="f-enc">
         <option value="">Todas</option>
         <option value="sem" ${f.enc === "sem" ? "selected" : ""}>Sem vendedor</option>
@@ -357,24 +373,30 @@
         <div class="modos" role="group" aria-label="Forma de ver as obras">
           <button type="button" data-modo="lista" aria-pressed="${E.modo === "lista"}">${ico("lista")}Lista</button>
           <button type="button" data-modo="fichas" aria-pressed="${E.modo === "fichas"}">${ico("fichas")}Fichas</button>
+          <button type="button" data-modo="quadro" aria-pressed="${quadro}">${ico("quadro")}Quadro</button>
         </div>
       </div>
-      <div class="${E.modo === "lista" ? "lista" : "grade"}" id="grade"></div>
+      ${quadro && E.vista === "todas" ? `<p class="dica-quadro">No quadro entram só as obras encaminhadas: um cartão por representante, na etapa em que ela marcou a obra. Cada representante muda a etapa no painel da obra.</p>` : ""}
+      <div class="${E.modo === "lista" ? "lista" : quadro ? "quadro" : "grade"}" id="grade"></div>
       <button class="btn mais" id="mais" type="button" hidden>Mostrar mais</button>`;
     aplicar();
   }
+  // no quadro de "Todas as obras" só entram obras encaminhadas (todas ou de uma representante)
+  const encDoQuadro = (f) => (f.enc && f.enc !== "sem" && f.enc !== "com" ? f.enc : "com");
   function baseFiltrada() {
     const f = E.filtros[E.vista];
+    const enc = E.modo === "quadro" && E.vista === "todas" ? encDoQuadro(f) : f.enc;
     const q = sem(f.busca.trim());
     return baseDaVista().filter((o) => (!q || o.busca.includes(q)) && (!f.mun || o.municipio === f.mun) &&
       (!f.dest || (o.destinacao || "Não informado") === f.dest) && (!f.salvas || deEmpresaSalva(o.cno)) &&
       (!f.area || (o.area || 0) >= Number(f.area)) && (!f.especial || (ESPECIAIS[f.especial] || {}).teste(o)) &&
-      (!f.enc || (f.enc === "sem" ? !encDe(o.cno).length : f.enc === "com" ? encDe(o.cno).length > 0 : encDe(o.cno).some((e) => e.vendedor_id === f.enc))));
+      (!enc || (enc === "sem" ? !encDe(o.cno).length : enc === "com" ? encDe(o.cno).length > 0 : encDe(o.cno).some((e) => e.vendedor_id === enc))));
   }
   // desenha os botões de filtro com as contagens atuais; devolve o teste do botão escolhido
   function renderChips(base) {
     const f = E.filtros[E.vista];
     let chips, passa;
+    if (E.vista === "minhas" && E.modo === "quadro") { $("chips").innerHTML = ""; return () => true; }
     if (E.vista === "minhas") {
       const st = (o) => (acompDe(o.cno, E.eu.id) || {}).status || "nova";
       chips = [["", "Todas", "todas", base.length], ...STATUS.map(([k, r]) => [k, r, "", base.filter((o) => st(o) === k).length])];
@@ -395,6 +417,7 @@
     if (f.especial && ESPECIAIS[f.especial]) $("chips").insertAdjacentHTML("afterbegin",
       `<button type="button" class="chip especial" data-tirar-especial aria-label="Tirar o filtro ${esc(ESPECIAIS[f.especial].rotulo)}">${esc(ESPECIAIS[f.especial].rotulo)} ×</button>`);
     E.lista = base.filter(passa).sort(ORDENS[f.ordem] || ORDENS.prioridade);
+    if (E.modo === "quadro") return desenharQuadro();
     $("qtd").textContent = nf.format(E.lista.length);
     $("qtd-rot").textContent = E.lista.length === 1 ? "obra" : "obras";
     E.mostradas = 0;
@@ -430,6 +453,54 @@
     const falta = E.lista.length - E.mostradas;
     $("mais").hidden = falta <= 0;
     $("mais").textContent = `Mostrar mais ${nf.format(Math.min(tam, falta))} de ${nf.format(falta)}`;
+  }
+
+  // ------------------------------------------------------------ quadro (Kanban): colunas = etapas do andamento
+  function cartoesDoQuadro() {
+    const f = E.filtros[E.vista], cards = [];
+    E.lista.forEach((o) => {
+      const vids = E.vista === "minhas" ? [E.eu.id]
+        : encDe(o.cno).map((e) => e.vendedor_id).filter((v) => encDoQuadro(f) === "com" || v === f.enc);
+      vids.forEach((vid) => cards.push({ o, vid, s: situacao(o.cno, vid) }));
+    });
+    return cards;
+  }
+  // primeiro o que pede atenção: ação vencida, depois a próxima ação mais perto, depois o mais tempo parado
+  const ordemCartao = (a, b) => (b.s.vencida - a.s.vencida) || (a.s.proxima || "9999").localeCompare(b.s.proxima || "9999") || ((b.s.dias || 0) - (a.s.dias || 0));
+  function desenharQuadro() {
+    const g = $("grade"), equipe = E.vista === "todas", cards = cartoesDoQuadro();
+    // obras com mais de uma representante viram um cartão para cada uma
+    const nObras = new Set(cards.map((c) => c.o.cno)).size;
+    $("qtd").textContent = nf.format(nObras);
+    $("qtd-rot").textContent = (equipe ? (nObras === 1 ? "obra encaminhada" : "obras encaminhadas") : (nObras === 1 ? "obra" : "obras"))
+      + (cards.length !== nObras ? ` · ${nf.format(cards.length)} cartões` : "");
+    $("mais").hidden = true;
+    if (!cards.length) {
+      g.innerHTML = `<p class="vazio">${equipe ? "Nenhuma obra encaminhada com esses filtros." : !baseDaVista().length
+        ? "Ainda não há obras encaminhadas para você." : "Nenhuma obra com esses filtros. Limpe a busca ou escolha “Todas”."}</p>`;
+      return;
+    }
+    const x = g.scrollLeft;
+    g.innerHTML = STATUS.map(([k, rot]) => {
+      const cs = cards.filter((c) => c.s.st === k).sort(ordemCartao);
+      return `<section class="coluna" aria-label="${esc(rot)}: ${cs.length}">
+        <h3 class="col-cab"><span class="status" data-s="${k}">${esc(rot)}</span><b>${nf.format(cs.length)}</b></h3>
+        <div class="col-cards">${cs.map((c) => cartao(c, equipe)).join("") || `<p class="col-vazia">nenhuma</p>`}</div></section>`;
+    }).join("");
+    g.scrollLeft = x;
+    const d = $("detalhe"); if (d.open && d.dataset.cno) marcarSelecionada(d.dataset.cno);
+  }
+  function cartao({ o, vid, s }, equipe) {
+    const rodape = (s.vencida ? `<span class="q-vencida">ação vencida ${dataBR(s.proxima)}</span>` : s.proxima && s.aberta ? `<span class="fraco">próxima ação ${dataBR(s.proxima)}</span>` : "")
+      + (s.parada ? `<span class="q-parada">parada há ${s.dias} dias</span>` : "");
+    return `<div class="card-q${s.vencida || s.parada ? " atencao" : ""}" data-cno="${esc(o.cno)}" tabindex="0" role="button" aria-label="Abrir ${esc(o.tNome)}">
+      <div class="q-top"><span class="mun">${esc(o.tMun || titulo(o.municipio))}</span><span class="q-area">${o.area ? nf.format(Math.round(o.area)) + " m²" : "–"}</span></div>
+      <div class="q-obra">${esc(o.tNome)}</div>
+      ${o.nova ? `<span class="novo" title="Entrou na base nos últimos 7 dias">News</span>` : ""}
+      ${o.janelas.length ? `<div class="q-prod">${o.janelas.map((j) => `<span class="mini" style="--c:${j.cor}">${esc(JANELA_CURTA[j.nome])}</span>`).join("")}</div>` : ""}
+      ${equipe ? `<div class="q-quem">${esc(nomeDe(vid))}</div>` : ""}
+      ${rodape ? `<div class="q-rodape">${rodape}</div>` : ""}
+    </div>`;
   }
 
   // ------------------------------------------------------------ ficha da obra
@@ -499,6 +570,7 @@
       </div></article>`;
   }
   function atualizarFicha(cno) {
+    if (E.modo === "quadro" && (E.vista === "todas" || E.vista === "minhas") && $("grade")) { aplicar(); renderAbas(); return; }
     const el = document.querySelector(`#grade [data-cno="${CSS.escape(cno)}"]`);
     const o = E.obras.get(cno);
     if (el && o) el.outerHTML = el.classList.contains("linha-obra") ? linha(o) : ficha(o);
@@ -576,7 +648,8 @@
     }, { onConflict: "cno,vendedor_id" });
     if (error) return falha(error, "Não foi possível salvar");
     E.acomp.set(cno + "|" + E.eu.id, novo);
-    if (E.vista === "minhas" && $("chips")) renderChips(baseFiltrada());
+    if (E.modo === "quadro" && (E.vista === "todas" || E.vista === "minhas") && $("grade")) aplicar();
+    else if (E.vista === "minhas" && $("chips")) renderChips(baseFiltrada());
     toast(mudanca.status ? "Andamento: " + STATUS_NOME[mudanca.status] : "Próxima ação salva");
   }
   // abre a ficha da empresa no CNPJá (site público de consulta de CNPJ), numa nova aba
@@ -1486,6 +1559,32 @@
   window.addEventListener("resize", () => { clearTimeout(tResize); tResize = setTimeout(() => { if (E.vista === "insights" && I.aba === "mercado" && $("grafico")) renderMercado(); }, 250); });
 
   // ------------------------------------------------------------ equipe (admin)
+  function painelEquipe() {
+    E.eqGrupos = new Map();
+    const pessoas = E.perfis.filter((p) => p.ativo).map((p) => ({ p,
+      cards: E.enc.filter((e) => e.vendedor_id === p.id && E.obras.has(e.cno)).map((e) => ({ o: E.obras.get(e.cno), s: situacao(e.cno, p.id) })) }))
+      .filter((x) => x.cards.length || x.p.papel === "vendedor")
+      .sort((a, b) => b.cards.length - a.cards.length || (a.p.nome || "").localeCompare(b.p.nome || ""));
+    const grupos = [...STATUS.map(([k, r]) => [k, r, (c) => c.s.st === k]),
+      ["parada", `Paradas (${PARADA_DIAS}+ dias)`, (c) => c.s.parada], ["vencida", "Ações vencidas", (c) => c.s.vencida], ["total", "Total", () => true]];
+    const cel = (x, k, rot, teste) => {
+      const lista = x.cards.filter(teste);
+      if (!lista.length) return `<td class="n zero">–</td>`;
+      const nome = x.p.nome || x.p.email;
+      E.eqGrupos.set(x.p.id + "|" + k, { titulo: `${nome}: ${rot.toLowerCase()}`, sub: `${nf.format(lista.length)} obra${lista.length === 1 ? "" : "s"} · toque para abrir`, obras: lista.map((c) => c.o) });
+      const alerta = (k === "parada" || k === "vencida") ? " alerta-eq" : "";
+      return `<td class="n"><button type="button" class="num-eq${alerta}" data-eq="${esc(x.p.id + "|" + k)}">${nf.format(lista.length)}</button></td>`;
+    };
+    if (!pessoas.length) return `<section class="cartao-viz"><div class="cab-viz"><h2>Andamento da equipe</h2><p>Nenhuma obra encaminhada ainda.</p></div></section>`;
+    return `<section class="cartao-viz">
+      <div class="cab-viz"><h2>Andamento da equipe</h2>
+        <p>Obras encaminhadas a cada representante, por etapa. Toque num número para ver as obras, ou no nome para abrir o quadro dela.
+        “Parada” = sem movimentação há ${PARADA_DIAS} dias ou mais (fora as fechadas e perdidas).</p></div>
+      <div class="tabela-viz"><table class="t-eq">
+        <thead><tr><th>Representante</th>${grupos.map(([k, r]) => `<th class="n">${k.length > 0 && STATUS_NOME[k] ? `<span class="status" data-s="${k}">${esc(r)}</span>` : esc(r)}</th>`).join("")}</tr></thead>
+        <tbody>${pessoas.map((x) => `<tr><th scope="row"><button type="button" class="link-cidade" data-eq-quadro="${esc(x.p.id)}">${esc(x.p.nome || x.p.email)}</button></th>${grupos.map(([k, r, t]) => cel(x, k, r, t)).join("")}</tr>`).join("")}</tbody>
+      </table></div></section>`;
+  }
   function renderEquipe() {
     const linhas = E.perfis.map((p) => {
       const obras = new Set(E.enc.filter((e) => e.vendedor_id === p.id).map((e) => e.cno));
@@ -1503,6 +1602,8 @@
       </tr>`;
     }).join("");
     $("conteudo").innerHTML = `
+      ${painelEquipe()}
+      <h2 class="titulo-sec">Pessoas e acessos</h2>
       <div class="tabela"><table>
         <thead><tr><th>Pessoa</th><th>Papel</th><th>Acesso</th><th class="n">Obras</th><th>Andamento</th></tr></thead>
         <tbody>${linhas}</tbody></table></div>
@@ -1563,9 +1664,17 @@
     if (ord) { E.filtros[E.vista].ordem = ord.dataset.ordenar; const s = $("f-ordem"); if (s) s.value = ord.dataset.ordenar; return E.vista === "construtoras" ? aplicarConstrutoras() : aplicar(); }
     const lin = t.closest(".linha-obra");
     if (lin && !t.closest("select, button, a, input, label")) return abrirDetalhe(lin.dataset.cno);
+    const card = t.closest(".card-q"); if (card) return abrirDetalhe(card.dataset.cno);
+    const eq = t.closest("[data-eq]"); if (eq && E.eqGrupos) { const g = E.eqGrupos.get(eq.dataset.eq); if (g) return abrirListaObras(g.titulo, g.sub, g.obras); }
+    const eqq = t.closest("[data-eq-quadro]");
+    if (eqq) {
+      const f = (E.filtros.todas = E.filtros.todas || filtrosPadrao("todas"));
+      f.enc = eqq.dataset.eqQuadro; E.modo = "quadro"; gravarModo(E.modo);
+      location.hash = "#todas"; return;
+    }
   });
   conteudo.addEventListener("keydown", (ev) => {
-    if ((ev.key === "Enter" || ev.key === " ") && ev.target.classList && ev.target.classList.contains("linha-obra")) { ev.preventDefault(); abrirDetalhe(ev.target.dataset.cno); }
+    if ((ev.key === "Enter" || ev.key === " ") && ev.target.classList && (ev.target.classList.contains("linha-obra") || ev.target.classList.contains("card-q"))) { ev.preventDefault(); abrirDetalhe(ev.target.dataset.cno); }
     if ((ev.key === "Enter" || ev.key === " ") && ev.target.classList && ev.target.classList.contains("linha-emp")) { ev.preventDefault(); abrirEmpresa(ev.target.dataset.basico); }
   });
   // encaminhar e tirar também pelo painel de detalhes
