@@ -46,7 +46,21 @@
 <!-- Mensagens de carregamento e erro geral -->
 <section class="entrada" id="tela-msg">
   <div class="caixa">
-    <div class="marca"><img src="icone.svg" alt=""><span class="nome"><b>radar</b> de obras</span></div>
+    <!-- ícone animado: o ponteiro varre a tela e a obra "acende" quando ele passa -->
+    <div class="marca"><svg class="radar-anim" viewBox="0 0 512 512" aria-hidden="true">
+      <defs><linearGradient id="rastro" gradientUnits="userSpaceOnUse" x1="150.6" y1="130.4" x2="390.3" y2="161.9">
+        <stop offset="0" stop-color="#161C2D" stop-opacity="0"/><stop offset="1" stop-color="#161C2D" stop-opacity="0.45"/></linearGradient></defs>
+      <rect width="512" height="512" rx="116" fill="#E9A93C"/>
+      <circle cx="256" cy="256" r="86" fill="none" stroke="#161C2D" stroke-width="16"/>
+      <circle cx="256" cy="256" r="178" fill="none" stroke="#161C2D" stroke-width="28"/>
+      <g class="varredura">
+        <path d="M 256 256 L 150.6 130.4 A 164.0 164.0 0 0 1 390.3 161.9 Z" fill="url(#rastro)"/>
+        <path d="M 256 256 L 390.3 161.9" stroke="#161C2D" stroke-width="18" stroke-linecap="round"/>
+      </g>
+      <circle class="ping" cx="284.8" cy="131.3" r="24" fill="none" stroke="#161C2D" stroke-width="7"/>
+      <rect class="blip" x="262.8" y="109.3" width="44" height="44" rx="9" fill="#161C2D"/>
+      <circle cx="256" cy="256" r="24" fill="#161C2D"/>
+    </svg><span class="nome"><b>radar</b> de obras</span></div>
     <p id="msg-texto">Carregando…</p>
   </div>
 </section>

@@ -104,6 +104,18 @@ textarea { min-height: 96px; resize: vertical; }
 .marca:hover .nome, .marca:focus-visible .nome { opacity: 1; transform: none; }
 .entrada .marca { justify-self: center; }
 .entrada .marca img { width: 56px; height: 56px; border-radius: 12px; }
+/* radar animado da tela de carregamento: uma volta a cada 2,4 s; a obra acende quando o ponteiro passa
+   (o ponteiro cruza a obra a 88% da volta, por isso o atraso negativo de 0,28 s) */
+.radar-anim { display: block; width: 72px; height: 72px; }
+.radar-anim .varredura { transform-origin: 256px 256px; animation: radar-gira 2.4s linear infinite; }
+.radar-anim .blip, .radar-anim .ping { transform-box: fill-box; transform-origin: center; }
+.radar-anim .blip { animation: radar-blip 2.4s linear -0.28s infinite; }
+.radar-anim .ping { opacity: 0; animation: radar-ping 2.4s ease-out -0.28s infinite; }
+@keyframes radar-gira { to { transform: rotate(360deg); } }
+@keyframes radar-blip { 0% { opacity: 1; transform: scale(1.18); } 10% { transform: scale(1); } 70%, 100% { opacity: 0.22; transform: scale(1); } }
+@keyframes radar-ping { 0% { opacity: 0.6; transform: scale(1); } 45%, 100% { opacity: 0; transform: scale(2.5); } }
+#tela-msg.parado .radar-anim *, #tela-msg[hidden] .radar-anim * { animation: none; }
+@media (prefers-reduced-motion: reduce) { .radar-anim * { animation: none !important; } }
 .regiao { font-family: var(--font-marca); font-weight: 700; font-size: 11.5px; letter-spacing: 0.08em; text-transform: uppercase;
   color: var(--marca); background: var(--tinta); border-radius: 3px; padding: 4px 8px; }
 

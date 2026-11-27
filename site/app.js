@@ -108,6 +108,8 @@
   function msg(texto, acao) {
     $("msg-texto").innerHTML = esc(texto) + (acao ? `<br><br><button class="btn" type="button" id="msg-acao">${esc(acao.rotulo)}</button>` : "");
     if (acao) $("msg-acao").onclick = acao.fn;
+    // o radar só gira enquanto carrega; em mensagem de erro ele para
+    $("tela-msg").classList.toggle("parado", !!acao || !/^Carregando/.test(texto));
     mostrar("msg");
   }
   function mostrarEntrada() {
